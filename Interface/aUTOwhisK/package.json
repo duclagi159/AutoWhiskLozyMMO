@@ -1,0 +1,32 @@
+{
+  "name": "veo3-tool",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "cargo tauri",
+    "cli": "bun run src/browser-cli.ts"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "@types/react": "^19.2.9",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "puppeteer-core": "^24.0.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "tailwindcss": "^4.1.18"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "@tauri-apps/cli": "^2.0.0",
+    "@types/bun": "latest",
+    "@vitejs/plugin-react": "^5.1.2",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.8"
+  }
+}

@@ -1,25 +1,48 @@
-﻿﻿using System.Diagnostics;
+﻿﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
-using System.IO.Compression;
-using System.Net.Http;
+using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
+using System.Windows.Forms;
+using ToolApp;
 
-var usage = """
-Whisk-like CLI (offline)
+// Note: ToolApp namespace is used for MainForm and UpdateManager
+
+var usage = $"""
+Whisk-like CLI (offline) v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}
 
 Usage:
   ToolApp --subject <path> --scene <path> --style <path> [--text "optional"] [--out <dir>]
-  ToolApp --update --repo <owner/name> --asset <file.zip>
+  ToolApp --update
+  ToolApp --check-update
 
 Example:
   ToolApp --subject subject.jpg --scene scene.jpg --style style.jpg --text "soft light"
-  ToolApp --update --repo duclagi159/AutoWhisk-Updates --asset ToolApp-win-x64.zip
+  ToolApp --update
 """;
 
-if (args.Length == 0 || args.Any(a => a.Equals("--help", StringComparison.OrdinalIgnoreCase)))
+// No arguments = Launch GUI mode
+if (args.Length == 0)
+{
+    var thread = new Thread(() =>
+    {
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+        Application.Run(new ToolApp.MainForm());
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+    return;
+}
+
+if (args.Any(a => a.Equals("--help", StringComparison.OrdinalIgnoreCase)))
 {
     Console.WriteLine(usage);
     return;
@@ -27,11 +50,26 @@ if (args.Length == 0 || args.Any(a => a.Equals("--help", StringComparison.Ordina
 
 try
 {
+    if (args.Any(a => a.Equals("--check-update", StringComparison.OrdinalIgnoreCase)))
+    {
+        var info = await UpdateManager.CheckForUpdateAsync();
+        Console.WriteLine($"Current version: {info.CurrentVersion}");
+        if (info.Available)
+        {
+            Console.WriteLine($"Update available: {info.Tag} (v{info.RemoteVersion})");
+            Console.WriteLine($"Release URL: {info.ReleaseUrl}");
+            Console.WriteLine("Run 'ToolApp --update' to apply.");
+        }
+        else
+        {
+            Console.WriteLine("You are up to date.");
+        }
+        return;
+    }
+
     if (args.Any(a => a.Equals("--update", StringComparison.OrdinalIgnoreCase)))
     {
-        var updateArgs = args.Where(a => !a.Equals("--update", StringComparison.OrdinalIgnoreCase)).ToArray();
-        var updateValues = ParseArgs(updateArgs);
-        await UpdateFromReleaseAsync(updateValues);
+        await UpdateManager.PerformUpdateAsync(msg => Console.WriteLine(msg));
         return;
     }
 
@@ -141,105 +179,7 @@ static Dictionary<string, string> ParseArgs(string[] args)
         throw new ArgumentException($"Unexpected argument: {arg}");
     }
 
-    if (pendingKey != null)
-    {
-        throw new ArgumentException($"Missing value for --{pendingKey}");
-    }
-
     return result;
-}
-
-static async Task UpdateFromReleaseAsync(Dictionary<string, string> values)
-{
-    if (!values.TryGetValue("repo", out var repo) || string.IsNullOrWhiteSpace(repo) ||
-        !values.TryGetValue("asset", out var assetName) || string.IsNullOrWhiteSpace(assetName))
-    {
-        Console.Error.WriteLine("Missing required inputs for update: --repo, --asset");
-        return;
-    }
-
-    var exePath = Environment.ProcessPath;
-    if (string.IsNullOrWhiteSpace(exePath) || exePath.EndsWith("dotnet.exe", StringComparison.OrdinalIgnoreCase))
-    {
-        Console.Error.WriteLine("Update requires a published executable. Please run the .exe directly.");
-        return;
-    }
-
-    using var http = new HttpClient();
-    http.DefaultRequestHeaders.UserAgent.ParseAdd("ToolApp-Updater");
-
-    var apiUrl = $"https://api.github.com/repos/{repo}/releases/latest";
-    var releaseJson = await http.GetStringAsync(apiUrl);
-
-    using var doc = JsonDocument.Parse(releaseJson);
-    if (!doc.RootElement.TryGetProperty("assets", out var assets))
-    {
-        Console.Error.WriteLine("No assets found in the latest release.");
-        return;
-    }
-
-    string? downloadUrl = null;
-    foreach (var asset in assets.EnumerateArray())
-    {
-        if (asset.TryGetProperty("name", out var nameProp) &&
-            nameProp.GetString()?.Equals(assetName, StringComparison.OrdinalIgnoreCase) == true &&
-            asset.TryGetProperty("browser_download_url", out var urlProp))
-        {
-            downloadUrl = urlProp.GetString();
-            break;
-        }
-    }
-
-    if (string.IsNullOrWhiteSpace(downloadUrl))
-    {
-        Console.Error.WriteLine($"Asset not found: {assetName}");
-        return;
-    }
-
-    var tempRoot = Path.Combine(Path.GetTempPath(), "ToolAppUpdate", Guid.NewGuid().ToString("N"));
-    Directory.CreateDirectory(tempRoot);
-    var zipPath = Path.Combine(tempRoot, assetName);
-
-    using (var response = await http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
-    {
-        response.EnsureSuccessStatusCode();
-        await using var fs = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        await response.Content.CopyToAsync(fs);
-    }
-
-    var extractDir = Path.Combine(tempRoot, "extract");
-    Directory.CreateDirectory(extractDir);
-    ZipFile.ExtractToDirectory(zipPath, extractDir, true);
-
-    var payloadRoot = extractDir;
-    var entries = Directory.GetFileSystemEntries(extractDir);
-    if (entries.Length == 1 && Directory.Exists(entries[0]))
-    {
-        payloadRoot = entries[0];
-    }
-
-    var baseDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-    var updaterPath = Path.Combine(tempRoot, "apply-update.cmd");
-    var script = $"""
-@echo off
-setlocal
-ping 127.0.0.1 -n 3 > nul
-xcopy "{payloadRoot}\*" "{baseDir}\" /E /I /Y > nul
-start "" "{exePath}"
-endlocal
-del "%~f0"
-""";
-    await File.WriteAllTextAsync(updaterPath, script, new UTF8Encoding(false));
-
-    Process.Start(new ProcessStartInfo
-    {
-        FileName = "cmd.exe",
-        Arguments = $"/c \"{updaterPath}\"",
-        CreateNoWindow = true,
-        UseShellExecute = false
-    });
-
-    Environment.Exit(0);
 }
 
 static void CreatePreview(string subjectPath, string scenePath, string stylePath, string previewPath)

@@ -8,6 +8,6 @@ build_property.PlatformNeutralAssembly =
 build_property.EnforceExtendedAnalyzerRules = 
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = ToolApp
-build_property.ProjectDir = D:\Tool AutoWhiskLozyMMO\toolapp\
+build_property.ProjectDir = d:\Tool AutoWhiskLozyMMO\ToolApp\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
