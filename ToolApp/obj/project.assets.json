@@ -249,13 +249,13 @@
     "C:\\Users\\NWD\\.nuget\\packages\\": {}
   },
   "project": {
-    "version": "1.0.0",
+    "version": "1.0.3",
     "restore": {
-      "projectUniqueName": "D:\\Tool AutoWhiskLozyMMO\\ToolApp\\ToolApp.csproj",
+      "projectUniqueName": "d:\\Tool AutoWhiskLozyMMO\\ToolApp\\ToolApp.csproj",
       "projectName": "ToolApp",
-      "projectPath": "D:\\Tool AutoWhiskLozyMMO\\ToolApp\\ToolApp.csproj",
+      "projectPath": "d:\\Tool AutoWhiskLozyMMO\\ToolApp\\ToolApp.csproj",
       "packagesPath": "C:\\Users\\NWD\\.nuget\\packages\\",
-      "outputPath": "D:\\Tool AutoWhiskLozyMMO\\ToolApp\\obj\\",
+      "outputPath": "d:\\Tool AutoWhiskLozyMMO\\ToolApp\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\NWD\\AppData\\Roaming\\NuGet\\NuGet.Config"
