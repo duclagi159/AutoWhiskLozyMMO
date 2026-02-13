@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         chrome.runtime.sendMessage({ type: 'GRAB_ALL' }, (data) => {
             btnGrab.disabled = false;
-            btnGrab.textContent = '🔄 Lấy Cookie & Token';
+            btnGrab.textContent = '🔄 Lấy Cookie';
 
             if (data?.error) {
                 showMsg('error', `❌ ${data.error}`);
@@ -32,21 +32,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             loadStatus();
-
-            if (data.bearerToken && data.email) {
-                showMsg('success', '✅ Đầy đủ: Cookie + Token + Gmail!');
-            } else if (data.bearerToken) {
-                showMsg('success', '✅ Có Cookie + Token! (Chưa lấy được Gmail)');
-            } else {
-                showMsg('success', '✅ Có Cookie! Token sẽ tự động lấy khi tạo ảnh.');
-            }
+            showMsg('success', data.email ? '✅ Cookie + Gmail OK!' : '✅ Cookie OK!');
         });
     });
 
     btnCopy.addEventListener('click', async () => {
         chrome.runtime.sendMessage({ type: 'GET_DATA' }, async (data) => {
             if (!data?.sessionToken) {
-                showMsg('error', '❌ Chưa có cookie! Bấm "Lấy Cookie & Token" trước.');
+                showMsg('error', '❌ Chưa có cookie! Bấm "Lấy Cookie" trước.');
                 return;
             }
 
@@ -54,8 +47,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 id: `acc-${Date.now()}`,
                 email: data.email || 'Unknown',
                 cookies: data.cookies || '',
-                bearerToken: data.bearerToken || '',
-                headers: data.headers || {},
                 savedAt: new Date().toISOString()
             });
 
@@ -97,16 +88,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     emailAvatarEl.style.background = '#374151';
                 }
 
-                if (data.bearerToken) {
-                    const tShort = data.bearerToken.substring(0, 10) + '...' + data.bearerToken.slice(-6);
-                    tokenStatusEl.innerHTML = `<span class="token-badge ok">✅ ${tShort}</span>`;
-                } else {
-                    tokenStatusEl.innerHTML = '<span class="token-badge no">❌ Chưa có</span>';
-                }
+                tokenStatusEl.innerHTML = '<span class="token-badge ok">✅ Tự động</span>';
 
-                const hCount = data.headers ? Object.keys(data.headers).length : 0;
-                headersStatusEl.textContent = hCount > 0 ? `${hCount} headers ✅` : '0';
-                headersStatusEl.className = hCount > 0 ? 'status-value ok' : 'status-value no';
+                if (headersStatusEl) {
+                    headersStatusEl.textContent = 'Tự động';
+                    headersStatusEl.className = 'status-value ok';
+                }
 
                 if (data.capturedAt) {
                     capturedAtEl.textContent = new Date(data.capturedAt).toLocaleTimeString('vi-VN', { hour12: false });
@@ -114,9 +101,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else {
                 cookieStatusEl.innerHTML = '<span class="token-badge no">❌ Chưa có</span>';
-                tokenStatusEl.innerHTML = '<span class="token-badge no">❌ Chưa có</span>';
-                headersStatusEl.textContent = '0';
-                headersStatusEl.className = 'status-value no';
+                tokenStatusEl.innerHTML = '<span class="token-badge no">⏳ Cần cookie</span>';
+                if (headersStatusEl) {
+                    headersStatusEl.textContent = '0';
+                    headersStatusEl.className = 'status-value no';
+                }
                 capturedAtEl.textContent = '--';
                 capturedAtEl.className = 'status-value no';
                 emailDisplayEl.textContent = 'Chưa xác định';

@@ -372,6 +372,7 @@ pub async fn generate_image_async(
     save_folder: Option<&str>,
     extra_headers: Option<&HashMap<String, String>>,
     ref_images: Option<Vec<String>>,
+    existing_workflow_id: Option<String>,
 ) -> Result<Value, String> {
     let mut diag = String::new();
 
@@ -408,18 +409,26 @@ pub async fn generate_image_async(
         token.len()
     ));
 
-    let mut workflow_id = uuid::Uuid::new_v4().to_string();
-    if !cookies.is_empty() {
-        diag.push_str("[Workflow creating...] ");
-        if let Some(wf_id) = create_workflow(&client, cookies, &session_id).await {
-            diag.push_str(&format!(
-                "[Workflow OK: {}...] ",
-                &wf_id[..8.min(wf_id.len())]
-            ));
-            workflow_id = wf_id;
-        } else {
-            diag.push_str("[Workflow failed, using fallback] ");
+    let mut workflow_id = existing_workflow_id.clone().unwrap_or_default();
+    if workflow_id.is_empty() {
+        workflow_id = uuid::Uuid::new_v4().to_string();
+        if !cookies.is_empty() {
+            diag.push_str("[Workflow creating...] ");
+            if let Some(wf_id) = create_workflow(&client, cookies, &session_id).await {
+                diag.push_str(&format!(
+                    "[Workflow OK: {}...] ",
+                    &wf_id[..8.min(wf_id.len())]
+                ));
+                workflow_id = wf_id;
+            } else {
+                diag.push_str("[Workflow failed, using fallback] ");
+            }
         }
+    } else {
+        diag.push_str(&format!(
+            "[Reusing workflow: {}...] ",
+            &workflow_id[..8.min(workflow_id.len())]
+        ));
     }
 
     if let Some(refs) = &ref_images {

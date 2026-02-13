@@ -1,0 +1,32 @@
+{
+    "productName": "Tech & AI - Lozy MMO",
+    "version": "1.1.0",
+    "identifier": "com.lozymmo.techai",
+    "build": {
+        "beforeDevCommand": "",
+        "beforeBuildCommand": "",
+        "devUrl": "http://localhost:3000",
+        "frontendDist": "../frontend-dist"
+    },
+    "app": {
+        "withGlobalTauri": true,
+        "windows": [
+            {
+                "label": "main",
+                "title": "Tech & AI - Lozy MMO",
+                "width": 1400,
+                "height": 900,
+                "minWidth": 1000,
+                "minHeight": 600,
+                "center": true,
+                "resizable": true,
+                "decorations": true,
+                "visible": true
+            }
+        ],
+        "security": {
+            "csp": null
+        }
+    },
+    "plugins": {}
+}

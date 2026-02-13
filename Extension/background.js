@@ -1,43 +1,5 @@
 const STORAGE_KEY = 'autowhisk_data';
 
-chrome.webRequest.onBeforeSendHeaders.addListener(
-    (details) => {
-        const headers = {};
-        let bearerToken = '';
-
-        for (const header of details.requestHeaders || []) {
-            const name = header.name.toLowerCase();
-            if (name === 'authorization' && header.value?.startsWith('Bearer ')) {
-                bearerToken = header.value.replace('Bearer ', '');
-            }
-            if (name === 'x-browser-channel') headers['x-browser-channel'] = header.value;
-            if (name === 'x-browser-copyright') headers['x-browser-copyright'] = header.value;
-            if (name === 'x-browser-validation') headers['x-browser-validation'] = header.value;
-            if (name === 'x-browser-year') headers['x-browser-year'] = header.value;
-            if (name === 'x-client-data') headers['x-client-data'] = header.value;
-        }
-
-        if (bearerToken) {
-            chrome.storage.local.get(STORAGE_KEY, (result) => {
-                const existing = result[STORAGE_KEY] || {};
-                existing.bearerToken = bearerToken;
-                existing.headers = headers;
-                existing.tokenCapturedAt = new Date().toISOString();
-                chrome.storage.local.set({ [STORAGE_KEY]: existing });
-                chrome.action.setBadgeText({ text: '✓' });
-                chrome.action.setBadgeBackgroundColor({ color: '#22c55e' });
-            });
-        }
-    },
-    {
-        urls: [
-            'https://aisandbox-pa.googleapis.com/*',
-            'https://labs.google/fx/api/*'
-        ]
-    },
-    ['requestHeaders']
-);
-
 async function getSessionCookie() {
     const cookie = await chrome.cookies.get({
         url: 'https://labs.google',
@@ -98,9 +60,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                     return;
                 }
 
-                const stored = await chrome.storage.local.get(STORAGE_KEY);
-                const existing = stored[STORAGE_KEY] || {};
-
                 let email = '';
                 const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
                 if (tab?.url?.includes('labs.google')) {
@@ -111,21 +70,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                     sessionToken,
                     cookies: `__Secure-next-auth.session-token=${sessionToken}`,
                     email,
-                    bearerToken: existing.bearerToken || '',
-                    headers: existing.headers || {},
-                    capturedAt: new Date().toISOString(),
-                    tokenCapturedAt: existing.tokenCapturedAt || null
+                    capturedAt: new Date().toISOString()
                 };
 
                 await chrome.storage.local.set({ [STORAGE_KEY]: data });
-
-                if (data.bearerToken) {
-                    chrome.action.setBadgeText({ text: '✓' });
-                    chrome.action.setBadgeBackgroundColor({ color: '#22c55e' });
-                } else {
-                    chrome.action.setBadgeText({ text: '½' });
-                    chrome.action.setBadgeBackgroundColor({ color: '#eab308' });
-                }
+                chrome.action.setBadgeText({ text: '✓' });
+                chrome.action.setBadgeBackgroundColor({ color: '#22c55e' });
 
                 sendResponse(data);
             } catch (err) {

@@ -88,6 +88,8 @@ export default function App() {
     } catch { }
   };
 
+  const globalSettingsRef = useRef({ ratio: '9:16' as '16:9' | '9:16' | '1:1', count: 2 });
+
   const log = useCallback((message: string, type: LogEntry['type'] = 'info') => {
     const time = new Date().toLocaleTimeString('vi-VN', { hour12: false });
     setLogs(prev => [...prev, { time, message, type }]);
@@ -99,8 +101,8 @@ export default function App() {
       order: orderCounter.current++,
       selected: false,
       prompt: '',
-      ratio: '16:9',
-      count: 2,
+      ratio: globalSettingsRef.current.ratio,
+      count: globalSettingsRef.current.count,
       status: 'pending',
       results: [],
     };
@@ -117,8 +119,8 @@ export default function App() {
       order: startOrder + i,
       selected: false,
       prompt,
-      ratio: '16:9' as const,
-      count: 2,
+      ratio: globalSettingsRef.current.ratio,
+      count: globalSettingsRef.current.count,
       status: 'pending' as const,
       results: [],
     }));
@@ -190,12 +192,24 @@ export default function App() {
       }
 
       log(`[Task #${task.order}] Generating - ${task.prompt.substring(0, 40)}... (${accountId.slice(-8)})`, 'step');
-      log(`[Task #${task.order}] Token: ${accountBearerToken ? `ya29...${accountBearerToken.slice(-8)} ✅` : 'None ❌ (using cookies)'}`, 'info');
       updateTask(task.id, { status: 'generating', statusText: 'Generating...' });
 
       const latestTask = await new Promise<Task>(resolve => {
         setTasks(prev => { resolve(prev.find(t => t.id === task.id) || task); return prev; });
       });
+
+      let existingWorkflowId: string | undefined;
+      try {
+        const raw = localStorage.getItem('autowhisk_accounts');
+        if (raw) {
+          const accs = JSON.parse(raw);
+          const acc = accs.find((a: any) => a.id === accountId);
+          if (acc?.projectLink) {
+            const parts = acc.projectLink.split('/');
+            existingWorkflowId = parts[parts.length - 1];
+          }
+        }
+      } catch { }
 
       const result = await invoke<{ success: boolean; images?: { savedPath?: string; encodedImage?: string }[]; error?: string; projectLink?: string; diagInfo?: string }>('generate_image', {
         cookies: accountCookies || '',
@@ -206,6 +220,7 @@ export default function App() {
         count: latestTask.count,
         saveFolder: saveFolder || undefined,
         refImages: refImages.length > 0 ? refImages.map(r => r.url) : undefined,
+        existingWorkflowId,
       });
 
       // Show diagnostic info
@@ -225,9 +240,12 @@ export default function App() {
             const raw = localStorage.getItem('autowhisk_accounts');
             if (raw) {
               const accs = JSON.parse(raw);
-              const updated = accs.map((a: any) => a.id === accountId ? { ...a, projectLink: result.projectLink } : a);
-              localStorage.setItem('autowhisk_accounts', JSON.stringify(updated));
-              window.dispatchEvent(new Event('accounts-updated'));
+              const currentAcc = accs.find((a: any) => a.id === accountId);
+              if (currentAcc && !currentAcc.projectLink) {
+                const updated = accs.map((a: any) => a.id === accountId ? { ...a, projectLink: result.projectLink } : a);
+                localStorage.setItem('autowhisk_accounts', JSON.stringify(updated));
+                window.dispatchEvent(new Event('accounts-updated'));
+              }
             }
           } catch { }
         }
@@ -364,7 +382,7 @@ export default function App() {
 
       <div className="flex-1 p-4 flex flex-col gap-4 overflow-hidden">
         <div className="shrink-0">
-          <AccountSection selectedAccounts={selectedAccounts} onSelectAccounts={setSelectedAccounts} onLog={log} onAccountsLoaded={setAccountEmails} />
+          <AccountSection selectedAccounts={selectedAccounts} onSelectAccounts={setSelectedAccounts} onLog={log} onAccountsLoaded={setAccountEmails} isRunning={isRunning} />
         </div>
 
         <div className="flex-1 flex gap-4 min-h-0">
@@ -387,6 +405,7 @@ export default function App() {
               onStop={stopTasks}
               isRunning={isRunning}
               onPreviewImage={(url: string, taskOrder: number) => setPreviewImage({ url, taskOrder })}
+              onGlobalSettingsChange={(ratio, count) => { globalSettingsRef.current = { ratio, count }; }}
             />
           </div>
 

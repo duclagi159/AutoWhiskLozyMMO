@@ -16,6 +16,7 @@ async fn generate_image(
     save_folder: Option<String>,
     headers: Option<std::collections::HashMap<String, String>>,
     ref_images: Option<Vec<String>>,
+    existing_workflow_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
     println!(
         "[generate_image] aspect_ratio={:?}, count={:?}",
@@ -36,6 +37,7 @@ async fn generate_image(
         save_folder.as_deref(),
         headers.as_ref(),
         ref_images,
+        existing_workflow_id,
     )
     .await;
 

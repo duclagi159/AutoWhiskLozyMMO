@@ -20,6 +20,7 @@ interface Props {
   onStop: () => void;
   isRunning: boolean;
   onPreviewImage: (url: string, taskOrder: number) => void;
+  onGlobalSettingsChange?: (ratio: '16:9' | '9:16' | '1:1', count: number) => void;
 }
 
 export function TaskTable({
@@ -40,6 +41,7 @@ export function TaskTable({
   onStop,
   isRunning,
   onPreviewImage,
+  onGlobalSettingsChange,
 }: Props) {
   const [globalCount, setGlobalCount] = useState<number>(2);
   const [globalRatio, setGlobalRatio] = useState<'16:9' | '9:16' | '1:1'>('9:16');
@@ -55,6 +57,7 @@ export function TaskTable({
     tasks.filter(t => !['queued', 'generating'].includes(t.status)).forEach(t => {
       onUpdateTask(t.id, { count });
     });
+    onGlobalSettingsChange?.(globalRatio, count);
   };
 
   const handleGlobalRatioChange = (ratio: '16:9' | '9:16' | '1:1') => {
@@ -62,6 +65,7 @@ export function TaskTable({
     tasks.filter(t => !['queued', 'generating'].includes(t.status)).forEach(t => {
       onUpdateTask(t.id, { ratio });
     });
+    onGlobalSettingsChange?.(ratio, globalCount);
   };
 
   // Filter tasks by status

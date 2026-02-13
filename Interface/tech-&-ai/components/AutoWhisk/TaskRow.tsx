@@ -22,7 +22,7 @@ const DEFAULT_STATUS = { bg: 'bg-gray-700/50', text: 'text-gray-300', label: '?'
 
 export function TaskRow({ task, isCurrentTask, accountEmail, onUpdate, onRemove, onPreviewImage, onReset }: Props) {
   const isRunning = ['queued', 'generating'].includes(task.status);
-  const editDisabled = task.status !== 'pending';
+  const editDisabled = isRunning;
   const statusConfig = STATUS_CONFIG[task.status] || DEFAULT_STATUS;
 
   const renderResultSlots = () => {
@@ -72,11 +72,6 @@ export function TaskRow({ task, isCurrentTask, accountEmail, onUpdate, onRemove,
 
       <td className="p-2 text-center">
         <span className="text-gray-500 font-mono text-xs">{task.order}</span>
-        {accountEmail && (
-          <div className="text-[9px] text-cyan-400 truncate max-w-[60px]" title={accountEmail}>
-            {accountEmail.split('@')[0]}
-          </div>
-        )}
       </td>
 
       <td className="p-2">

@@ -24,6 +24,7 @@ interface Props {
   onSelectAccounts: (accounts: SelectedAccount[]) => void;
   onLog: (msg: string, type?: LogEntry['type']) => void;
   onAccountsLoaded: (emails: Record<string, string>) => void;
+  isRunning?: boolean;
 }
 
 const STORAGE_KEY = 'autowhisk_accounts';
@@ -40,7 +41,7 @@ function setStoredAccounts(accounts: AccountInfo[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
 }
 
-export function AccountSection({ selectedAccounts, onSelectAccounts, onLog, onAccountsLoaded }: Props) {
+export function AccountSection({ selectedAccounts, onSelectAccounts, onLog, onAccountsLoaded, isRunning }: Props) {
   const [accounts, setAccounts] = useState<AccountInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
@@ -145,7 +146,23 @@ export function AccountSection({ selectedAccounts, onSelectAccounts, onLog, onAc
     loadAccounts();
     const handler = () => loadAccounts();
     window.addEventListener('accounts-updated', handler);
-    return () => window.removeEventListener('accounts-updated', handler);
+    const expiryInterval = setInterval(loadAccounts, 60000);
+    const clearLinks = () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const accs = JSON.parse(raw);
+          const cleaned = accs.map((a: any) => { const { projectLink, ...rest } = a; return rest; });
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+        }
+      } catch { }
+    };
+    window.addEventListener('beforeunload', clearLinks);
+    return () => {
+      window.removeEventListener('accounts-updated', handler);
+      window.removeEventListener('beforeunload', clearLinks);
+      clearInterval(expiryInterval);
+    };
   }, []);
 
   const totalThreads = selectedAccounts.reduce((sum, a) => sum + a.threads, 0);
@@ -223,9 +240,8 @@ export function AccountSection({ selectedAccounts, onSelectAccounts, onLog, onAc
                     </div>
                   </div>
 
-                  {/* Project Link - Copy to clipboard */}
-                  <div className="flex items-center gap-1 min-w-0">
-                    {acc.projectLink ? (
+                  {acc.projectLink ? (
+                    <div className="flex items-center gap-1">
                       <button
                         onClick={e => {
                           e.stopPropagation();
@@ -235,13 +251,27 @@ export function AccountSection({ selectedAccounts, onSelectAccounts, onLog, onAc
                           btn.textContent = '✅ Copied!';
                           setTimeout(() => { btn.textContent = orig; }, 1500);
                         }}
-                        className="text-[10px] text-cyan-400 hover:text-cyan-300 truncate max-w-[250px] cursor-pointer bg-transparent border-none"
+                        className="text-[10px] text-cyan-400 hover:text-cyan-300 truncate max-w-[200px] cursor-pointer bg-transparent border-none p-0"
                         title={`Click để copy: ${acc.projectLink}`}
-                      >🔗 {acc.projectLink.replace(/^https?:\/\//, '').substring(0, 40)}</button>
-                    ) : (
-                      <span className="text-[10px] text-gray-600">🔗 Chưa có dự án</span>
-                    )}
-                  </div>
+                      >🔗 {acc.projectLink.replace(/^https?:\/\//, '').substring(0, 35)}</button>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (isRunning) return;
+                          const raw = localStorage.getItem(STORAGE_KEY);
+                          if (raw) {
+                            const accs = JSON.parse(raw);
+                            const updated = accs.map((a: any) => a.id === acc.id ? { ...a, projectLink: undefined } : a);
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+                            loadAccounts();
+                          }
+                        }}
+                        disabled={isRunning}
+                        className={`w-5 h-5 rounded text-[10px] transition-colors flex items-center justify-center shrink-0 ${isRunning ? 'bg-gray-700 opacity-50 cursor-not-allowed' : 'bg-red-600/30 hover:bg-red-600 cursor-pointer'}`}
+                        title={isRunning ? 'Đang chạy, không thể xóa' : 'Xóa dự án cũ'}
+                      >✕</button>
+                    </div>
+                  ) : null}
 
                   {isSelected && (
                     <div className="flex items-center gap-1">
@@ -255,7 +285,6 @@ export function AccountSection({ selectedAccounts, onSelectAccounts, onLog, onAc
                         <option value={1}>1</option>
                         <option value={2}>2</option>
                         <option value={3}>3</option>
-                        <option value={4}>4</option>
                       </select>
                     </div>
                   )}

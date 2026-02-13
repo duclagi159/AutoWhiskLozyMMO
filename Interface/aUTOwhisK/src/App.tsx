@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from './bridge';
 import { AccountSection, SelectedAccount } from './components/AccountSection';
 import { TaskTable } from './components/TaskTable';
 import { LogPanel } from './components/LogPanel';
@@ -40,6 +40,12 @@ export interface LogEntry {
   type: 'info' | 'success' | 'error' | 'step';
 }
 
+interface RefImage {
+  id: string;
+  url: string;
+  name: string;
+}
+
 export default function App() {
   const [selectedAccounts, setSelectedAccounts] = useState<SelectedAccount[]>(() => {
     try {
@@ -60,6 +66,8 @@ export default function App() {
   const [runningTaskIds, setRunningTaskIds] = useState<Set<string>>(new Set());
   const [previewVideo, setPreviewVideo] = useState<{ url: string; taskOrder: number } | null>(null);
   const [accountEmails, setAccountEmails] = useState<Record<string, string>>({});
+  const [refImages, setRefImages] = useState<RefImage[]>([]);
+  const [saveFolder, setSaveFolder] = useState('');
   const stopFlag = useRef(false);
   const orderCounter = useRef<number>((() => {
     try {
@@ -82,6 +90,22 @@ export default function App() {
       localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(selectedAccounts));
     } catch (e) { console.error('Failed to save accounts:', e); }
   }, [selectedAccounts]);
+
+  // Listen for folder-selected message from C#
+  useEffect(() => {
+    const webview = (window as any).chrome?.webview;
+    if (!webview) return;
+    const handler = (event: any) => {
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data.type === 'folder-selected' && data.path) {
+          setSaveFolder(data.path);
+        }
+      } catch { }
+    };
+    webview.addEventListener('message', handler);
+    return () => webview.removeEventListener('message', handler);
+  }, []);
 
   const log = useCallback((message: string, type: LogEntry['type'] = 'info') => {
     const time = new Date().toLocaleTimeString('vi-VN', { hour12: false });
@@ -280,16 +304,16 @@ export default function App() {
       }
 
       const result = await invoke<{ success: boolean; operations?: VideoOperation[]; error?: string }>('generate_video', {
-          accountId,
-          request: {
-            prompt: task.prompt,
-            video_type: videoType,
-            aspect_ratio: task.ratio === '9:16' ? 'portrait' : 'landscape',
-            count: task.count,
-            image_start: task.startImage,
-            image_end: task.endImage,
-          },
-        });
+        accountId,
+        request: {
+          prompt: task.prompt,
+          video_type: videoType,
+          aspect_ratio: task.ratio === '9:16' ? 'portrait' : 'landscape',
+          count: task.count,
+          image_start: task.startImage,
+          image_end: task.endImage,
+        },
+      });
 
       if (result.success && result.operations?.length) {
         const opCount = result.operations.length;
@@ -319,7 +343,7 @@ export default function App() {
     const runnableStatuses = ['pending', 'done', 'error'];
     const validTasks = tasksToRun.filter(t => runnableStatuses.includes(t.status) && t.prompt.trim());
     if (validTasks.length === 0) { log('Không có task hợp lệ!', 'error'); return; }
-    
+
     validTasks.forEach(t => {
       updateTask(t.id, { status: 'pending', statusText: undefined, results: [], operations: undefined, error: undefined });
     });
@@ -386,7 +410,7 @@ export default function App() {
 
         log(`[Thread ${accountId.slice(-8)}-${threadIdx}] Processing task #${task.order}`, 'step');
         const operations = await processTask(task, accountId);
-        
+
         if (operations) {
           tasksWithOps.push({ task, accountId, operations });
         }
@@ -397,7 +421,7 @@ export default function App() {
     };
 
     // Start all workers in parallel
-    const workerPromises = threadPool.map(({ accountId, threadIdx }) => 
+    const workerPromises = threadPool.map(({ accountId, threadIdx }) =>
       worker(accountId, threadIdx)
     );
 
@@ -407,7 +431,7 @@ export default function App() {
     log(`✅ Đã gửi ${tasksWithOps.length} tasks, bắt đầu poll status...`, 'success');
 
     // Now poll all tasks in parallel
-    const pollPromises = tasksWithOps.map(({ task, accountId, operations }) => 
+    const pollPromises = tasksWithOps.map(({ task, accountId, operations }) =>
       pollTaskStatus({ ...task, operations }, accountId)
     );
 
@@ -436,7 +460,7 @@ export default function App() {
     log('⏹️ Đang dừng...', 'info');
     try {
       await invoke('close_all_sessions');
-    } catch {}
+    } catch { }
   };
 
   const runSelected = () => runTasks(tasks.filter(t => t.selected));
@@ -498,17 +522,80 @@ export default function App() {
           </div>
 
           <div className="flex-1 flex flex-col gap-4 min-w-[300px]">
-            <div className="flex-1 bg-[#12121a] rounded-xl border border-gray-800 overflow-hidden flex flex-col min-h-[200px]">
+            {/* Lưu vào bar */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-[#1a1a2a] rounded-xl border border-gray-800 shrink-0">
+              <span className="text-sm">📁</span>
+              <span className="text-xs text-gray-400">Lưu vào</span>
+              <button
+                onClick={() => {
+                  (window as any).chrome?.webview?.postMessage(JSON.stringify({ type: 'choose-folder' }));
+                }}
+                className="flex-1 px-2 py-1 bg-[#12121a] border border-gray-700 hover:border-gray-500 rounded text-xs text-gray-400 hover:text-gray-200 transition-colors text-left truncate"
+              >
+                {saveFolder || 'Chọn thư mục...'}
+              </button>
+            </div>
+
+            {/* Reference Images panel */}
+            <div className="bg-[#12121a] rounded-xl border border-gray-800 overflow-hidden flex flex-col shrink-0">
+              <div className="px-3 py-2 bg-[#1a1a2a] border-b border-gray-800 flex items-center justify-between shrink-0">
+                <span className="text-xs text-gray-400">🖼️ Ảnh tham chiếu ({refImages.length}/3)</span>
+                <label className="px-2 py-0.5 bg-red-700 hover:bg-red-600 rounded text-[10px] font-medium cursor-pointer transition-colors">
+                  Fill Ref
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      const remaining = 3 - refImages.length;
+                      const toAdd = files.slice(0, remaining);
+                      toAdd.forEach(file => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          setRefImages(prev => {
+                            if (prev.length >= 3) return prev;
+                            return [...prev, { id: Date.now().toString() + Math.random(), url: ev.target?.result as string, name: file.name }];
+                          });
+                        };
+                        reader.readAsDataURL(file);
+                      });
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="flex gap-2 p-2 min-h-[70px]">
+                {refImages.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center text-gray-600 text-xs">Chưa có ảnh tham chiếu</div>
+                ) : (
+                  refImages.map(img => (
+                    <div key={img.id} className="relative group w-16 h-16 rounded-lg overflow-hidden border border-gray-700 shrink-0">
+                      <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => setRefImages(prev => prev.filter(i => i.id !== img.id))}
+                        className="absolute top-0 right-0 w-4 h-4 bg-red-600 rounded-bl text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >✕</button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Logs panel */}
+            <div className="flex-1 bg-[#12121a] rounded-xl border border-gray-800 overflow-hidden flex flex-col min-h-[150px]">
+              <LogPanel logs={logs} onClear={() => setLogs([])} />
+            </div>
+
+            {/* Image panel */}
+            <div className="flex-1 bg-[#12121a] rounded-xl border border-gray-800 overflow-hidden flex flex-col min-h-[150px]">
               <div className="px-3 py-2 bg-[#1a1a2a] border-b border-gray-800 shrink-0">
-                <span className="text-xs text-gray-400">🎬 Videos ({allVideos.length})</span>
+                <span className="text-xs text-gray-400">🖼️ Image ({allVideos.length})</span>
               </div>
               <div className="flex-1 overflow-auto p-2">
                 <VideoGallery videos={allVideos} onPreviewVideo={handlePreviewVideo} />
               </div>
-            </div>
-
-            <div className="flex-1 bg-[#12121a] rounded-xl border border-gray-800 overflow-hidden flex flex-col min-h-[200px]">
-              <LogPanel logs={logs} onClear={() => setLogs([])} />
             </div>
           </div>
         </div>

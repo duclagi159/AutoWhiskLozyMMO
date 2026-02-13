@@ -43,8 +43,9 @@ export function TaskTable({
   isRunning,
   onPreviewVideo,
 }: Props) {
-  const [globalCount, setGlobalCount] = useState<number>(2);
-  const [globalRatio, setGlobalRatio] = useState<'16:9' | '9:16'>('16:9');
+  const [globalCount, setGlobalCount] = useState<number>(1);
+  const [globalRatio, setGlobalRatio] = useState<'16:9' | '9:16'>('9:16');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
 
   const allSelected = tasks.length > 0 && tasks.every(t => t.selected);
   const hasRunnable = runnableCount > 0;
@@ -65,12 +66,21 @@ export function TaskTable({
     });
   };
 
+  // Filter tasks by status
+  const filteredTasks = filterStatus === 'all' ? tasks : tasks.filter(t => t.status === filterStatus);
+  const statusCounts = {
+    all: tasks.length,
+    pending: tasks.filter(t => t.status === 'pending').length,
+    done: tasks.filter(t => t.status === 'done').length,
+    error: tasks.filter(t => t.status === 'error').length,
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="sticky top-0 z-40 bg-[#12121a] border-b border-gray-800">
         <div className="flex flex-wrap items-center gap-2 p-3">
           <div className="flex items-center gap-2">
-            <button onClick={onAddTask} className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors">
+            <button onClick={onAddTask} className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors">
               <span>➕</span> Thêm
             </button>
             <button onClick={onShowBulkModal} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors">
@@ -78,25 +88,30 @@ export function TaskTable({
             </button>
           </div>
 
-          <div className="flex items-center gap-1 pl-2 border-l border-gray-700">
-            <button onClick={() => onFillBulkImages('start')} className="px-2 py-1 bg-pink-600/80 hover:bg-pink-600 rounded text-xs font-medium transition-colors">Fill S</button>
-            <button onClick={() => onFillBulkImages('end')} className="px-2 py-1 bg-gray-600 hover:bg-gray-500 rounded text-xs font-medium transition-colors">Fill E</button>
-          </div>
-
           <div className="flex items-center gap-2 pl-2 border-l border-gray-700">
             <span className="text-xs text-gray-500">SL:</span>
             <select value={globalCount} onChange={e => handleGlobalCountChange(parseInt(e.target.value))} className="px-2 py-1 bg-[#1a1a2a] border border-gray-700 rounded text-xs cursor-pointer focus:outline-none focus:border-cyan-500">
               <option value={1}>1</option>
               <option value={2}>2</option>
-              <option value={4}>4</option>
             </select>
           </div>
 
           <div className="flex items-center gap-2 pl-2 border-l border-gray-700">
             <span className="text-xs text-gray-500">Ratio:</span>
             <select value={globalRatio} onChange={e => handleGlobalRatioChange(e.target.value as '16:9' | '9:16')} className="px-2 py-1 bg-[#1a1a2a] border border-gray-700 rounded text-xs cursor-pointer focus:outline-none focus:border-cyan-500">
-              <option value="16:9">16:9</option>
               <option value="9:16">9:16</option>
+              <option value="16:9">16:9</option>
+              <option value="1:1">1:1</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 pl-2 border-l border-gray-700">
+            <span className="text-xs text-gray-500">Filter:</span>
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="px-2 py-1 bg-[#1a1a2a] border border-gray-700 rounded text-xs cursor-pointer focus:outline-none focus:border-cyan-500">
+              <option value="all">Tất cả ({statusCounts.all})</option>
+              <option value="pending">Pending ({statusCounts.pending})</option>
+              <option value="done">Done ({statusCounts.done})</option>
+              <option value="error">Error ({statusCounts.error})</option>
             </select>
           </div>
 
@@ -127,7 +142,7 @@ export function TaskTable({
       </div>
 
       <div className="flex-1 overflow-auto">
-        {tasks.length === 0 ? (
+        {filteredTasks.length === 0 ? (
           <div className="text-center py-16 text-gray-500">
             <div className="text-5xl mb-4">📭</div>
             <div className="text-lg">Chưa có task nào</div>
@@ -149,7 +164,7 @@ export function TaskTable({
               </tr>
             </thead>
             <tbody>
-              {tasks.map(task => (
+              {filteredTasks.map(task => (
                 <TaskRow
                   key={task.id}
                   task={task}

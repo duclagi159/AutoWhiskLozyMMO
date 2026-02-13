@@ -6,7 +6,6 @@ import {
   History as HistoryIcon,
   Layers,
   Cpu,
-  Sparkles,
   Zap,
   Crown
 } from 'lucide-react';
@@ -15,15 +14,15 @@ import MergeOverlapTab from './components/MergeOverlapTab';
 import CustomSplitTab from './components/CustomSplitTab';
 import RenameFileTab from './components/RenameFileTab';
 import HistoryTab from './components/HistoryTab';
-import AutoWhiskTab from './components/AutoWhisk/AutoWhiskTab';
 import UpgradeTab from './components/UpgradeTab';
+import AutoWhiskApp from './components/AutoWhisk/AutoWhiskTab';
 
 export enum TabId {
+  AUTO_WHISK = 'AUTO_WHISK',
   SPLIT_PROMPT = 'SPLIT_PROMPT',
   MERGE_OVERLAP = 'MERGE_OVERLAP',
   CUSTOM_SPLIT = 'CUSTOM_SPLIT',
   RENAME_FILE = 'RENAME_FILE',
-  AUTO_WHISK = 'AUTO_WHISK',
   HISTORY = 'HISTORY',
   UPGRADE = 'UPGRADE'
 }
@@ -34,7 +33,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case TabId.AUTO_WHISK:
-        return <AutoWhiskTab />;
+        return <AutoWhiskApp />;
       case TabId.SPLIT_PROMPT:
         return <SplitPromptTab />;
       case TabId.MERGE_OVERLAP:
@@ -48,7 +47,7 @@ const App: React.FC = () => {
       case TabId.UPGRADE:
         return <UpgradeTab />;
       default:
-        return <AutoWhiskTab />;
+        return <SplitPromptTab />;
     }
   };
 

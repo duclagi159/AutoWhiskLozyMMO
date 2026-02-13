@@ -1,4 +1,3 @@
-Set WshShell = CreateObject("WScript.Shell") 
-strPath = "ToolApp\bin\Debug\net8.0-windows\ToolApp.exe"
-WshShell.Run chr(34) & strPath & chr(34), 1, false
-Set WshShell = Nothing
+Set WshShell = CreateObject("WScript.Shell")
+WshShell.CurrentDirectory = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)
+WshShell.Run """src-tauri\target\release\autowhisk.exe""", 1, False

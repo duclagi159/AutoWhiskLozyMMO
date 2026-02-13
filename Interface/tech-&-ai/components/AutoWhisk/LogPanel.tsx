@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { LogEntry } from './types';
+import { LogEntry } from './AutoWhiskTab';
 
 interface Props {
   logs: LogEntry[];
