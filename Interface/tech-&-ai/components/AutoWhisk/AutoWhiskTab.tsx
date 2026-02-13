@@ -145,7 +145,7 @@ export default function App() {
   };
 
   const resetTask = (id: string) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'pending' as const, statusText: undefined, results: [], error: undefined, selected: false, accountId: undefined } : t));
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'pending' as const, statusText: undefined, results: [], error: undefined, projectLink: undefined, selected: false, accountId: undefined } : t));
     log(`Reset task`, 'info');
   };
 

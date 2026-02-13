@@ -80,14 +80,33 @@ export function TaskRow({ task, isCurrentTask, accountEmail, onUpdate, onRemove,
       </td>
 
       <td className="p-2">
-        <textarea
-          value={task.prompt}
-          onChange={e => onUpdate({ prompt: e.target.value })}
-          disabled={editDisabled}
-          placeholder="Nhập prompt..."
-          rows={2}
-          className="w-full px-2 py-1.5 bg-[#1a1a2a] border border-gray-700 rounded-lg text-sm resize-none focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed placeholder-gray-600"
-        />
+        <div className="flex gap-2 items-start">
+          <textarea
+            value={task.prompt}
+            onChange={e => onUpdate({ prompt: e.target.value })}
+            disabled={editDisabled}
+            placeholder="Nhập prompt..."
+            rows={2}
+            className="flex-1 px-2 py-1.5 bg-[#1a1a2a] border border-gray-700 rounded-lg text-sm resize-none focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed placeholder-gray-600"
+          />
+          <div className="flex flex-col items-center gap-1 min-w-[32px]">
+            {task.status === 'pending' ? (
+              <select
+                value={task.count}
+                onChange={e => onUpdate({ count: parseInt(e.target.value) })}
+                className="w-10 px-1 py-1 bg-[#1a1a2a] border border-gray-700 rounded text-[10px] text-center cursor-pointer focus:outline-none focus:border-cyan-500"
+                title="Số lượng ảnh"
+              >
+                <option value={1}>1</option>
+                <option value={2}>2</option>
+                <option value={3}>3</option>
+                <option value={4}>4</option>
+              </select>
+            ) : (
+              <span className="text-[10px] text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded" title="Số lượng ảnh">×{task.count}</span>
+            )}
+          </div>
+        </div>
       </td>
 
       <td className="p-2 text-center">
