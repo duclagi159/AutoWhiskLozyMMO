@@ -1,0 +1,34 @@
+{
+    "manifest_version": 3,
+    "name": "AutoWhisk Cookie Grabber",
+    "version": "5.1.0",
+    "description": "Lấy cookie + Bearer token + Gmail từ labs.google cho AutoWhisk Tool",
+    "permissions": [
+        "cookies",
+        "activeTab",
+        "storage",
+        "webRequest",
+        "scripting",
+        "clipboardWrite"
+    ],
+    "host_permissions": [
+        "https://labs.google/*",
+        "https://aisandbox-pa.googleapis.com/*"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icon16.png",
+            "48": "icon48.png",
+            "128": "icon128.png"
+        }
+    },
+    "icons": {
+        "16": "icon16.png",
+        "48": "icon48.png",
+        "128": "icon128.png"
+    }
+}

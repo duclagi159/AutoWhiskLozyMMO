@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            width: 360px;
+            background: #0a0a0f;
+            color: #e4e4e7;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 13px;
+        }
+
+        .header {
+            padding: 14px 16px;
+            background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+        }
+
+        .header h1 {
+            font-size: 15px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .header .sub {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 2px;
+        }
+
+        .header .ver {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 1px;
+        }
+
+        .content {
+            padding: 16px;
+        }
+
+        .email-card {
+            background: linear-gradient(135deg, #1e1b4b, #172554);
+            border: 1px solid #3730a3;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .email-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #374151;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .email-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .email-label {
+            font-size: 10px;
+            color: #818cf8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 3px;
+        }
+
+        .email-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: #c7d2fe;
+            word-break: break-all;
+        }
+
+        .email-value.no {
+            color: #71717a;
+            font-style: italic;
+            font-weight: 400;
+        }
+
+        .status-box {
+            background: #12121a;
+            border: 1px solid #27272a;
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 12px;
+        }
+
+        .status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .status-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .status-label {
+            color: #71717a;
+            font-size: 11px;
+        }
+
+        .status-value {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .ok {
+            color: #4ade80;
+        }
+
+        .no {
+            color: #f87171;
+        }
+
+        .wait {
+            color: #facc15;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            color: white;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-grab {
+            background: #2563eb;
+            margin-bottom: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+        }
+
+        .btn-open {
+            background: #374151;
+            margin-bottom: 8px;
+            font-size: 12px;
+            padding: 9px;
+        }
+
+        .btn-small {
+            background: #374151;
+            font-size: 11px;
+            padding: 8px;
+        }
+
+        .msg {
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            margin-top: 12px;
+            display: none;
+            text-align: center;
+        }
+
+        .msg.success {
+            display: block;
+            background: #064e3b;
+            color: #6ee7b7;
+            border: 1px solid #065f46;
+        }
+
+        .msg.error {
+            display: block;
+            background: #450a0a;
+            color: #fca5a5;
+            border: 1px solid #7f1d1d;
+        }
+
+        .hint {
+            margin-top: 12px;
+            padding: 10px;
+            background: #1a1a2a;
+            border-radius: 8px;
+            font-size: 10px;
+            color: #71717a;
+            line-height: 1.6;
+        }
+
+        .hint b {
+            color: #a1a1aa;
+        }
+
+        .btns-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .btns-row .btn {
+            font-size: 11px;
+            padding: 8px;
+        }
+
+        .token-badge {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .token-badge.ok {
+            background: #064e3b;
+            color: #4ade80;
+        }
+
+        .token-badge.no {
+            background: #450a0a;
+            color: #f87171;
+        }
+
+        .divider {
+            height: 1px;
+            background: #27272a;
+            margin: 8px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>🍪 AutoWhisk Grabber</h1>
+        <div class="sub">Lấy cookie + Bearer token từ Google Whisk</div>
+        <div class="ver">v5.1.0</div>
+    </div>
+    <div class="content">
+        <button id="btnOpen" class="btn btn-open">
+            🌐 Mở Google Whisk
+        </button>
+
+        <div class="email-card">
+            <div class="email-avatar" id="emailAvatar">?</div>
+            <div class="email-info">
+                <div class="email-label">Tài khoản Google</div>
+                <div class="email-value no" id="emailDisplay">Chưa xác định</div>
+            </div>
+        </div>
+
+        <div class="status-box">
+            <div class="status-row">
+                <span class="status-label">Session Cookie</span>
+                <span id="cookieStatus" class="status-value no">❌ Chưa có</span>
+            </div>
+            <div class="divider"></div>
+            <div class="status-row">
+                <span class="status-label">Bearer Token</span>
+                <span id="tokenStatus" class="status-value no">❌ Chưa có</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Headers</span>
+                <span id="headersStatus" class="status-value no">0</span>
+            </div>
+            <div class="divider"></div>
+            <div class="status-row">
+                <span class="status-label">Bắt lúc</span>
+                <span id="capturedAt" class="status-value no">--</span>
+            </div>
+        </div>
+
+        <button id="btnGrab" class="btn btn-grab">
+            🔄 Lấy Cookie & Token
+        </button>
+
+        <button id="btnCopy" class="btn btn-primary" disabled>
+            📋 Copy Data
+        </button>
+
+        <div class="btns-row">
+            <button id="btnClear" class="btn btn-small" style="flex:1">
+                🗑️ Xóa dữ liệu
+            </button>
+        </div>
+
+        <div id="msg" class="msg"></div>
+
+        <div class="hint">
+            <b>Cách dùng:</b><br>
+            1. Đăng nhập <b>labs.google</b> (bấm "Mở Google Whisk")<br>
+            2. <b>Tạo 1 ảnh thử</b> trên Whisk để bắt Bearer token tự động<br>
+            3. Bấm <b>"🔄 Lấy Cookie & Token"</b><br>
+            4. Bấm <b>"📋 Copy Data"</b><br>
+            5. Dán vào AutoWhisk Tool → Thêm account
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>

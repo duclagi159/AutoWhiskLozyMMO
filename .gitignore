@@ -7,10 +7,17 @@ bin/
 obj/
 *.zip
 
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/schemas/
+
 # IDE
 .vs/
+.vscode/
+.idea/
 *.user
 *.suo
+*.swp
 
 # OS
 Thumbs.db
