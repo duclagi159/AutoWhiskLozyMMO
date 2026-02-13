@@ -89,21 +89,36 @@ export function TaskRow({ task, isCurrentTask, accountEmail, onUpdate, onRemove,
             rows={2}
             className="flex-1 px-2 py-1.5 bg-[#1a1a2a] border border-gray-700 rounded-lg text-sm resize-none focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed placeholder-gray-600"
           />
-          <div className="flex flex-col items-center gap-1 min-w-[32px]">
+          <div className="flex flex-col items-center gap-1 min-w-[40px]">
             {task.status === 'pending' ? (
-              <select
-                value={task.count}
-                onChange={e => onUpdate({ count: parseInt(e.target.value) })}
-                className="w-10 px-1 py-1 bg-[#1a1a2a] border border-gray-700 rounded text-[10px] text-center cursor-pointer focus:outline-none focus:border-cyan-500"
-                title="Số lượng ảnh"
-              >
-                <option value={1}>1</option>
-                <option value={2}>2</option>
-                <option value={3}>3</option>
-                <option value={4}>4</option>
-              </select>
+              <>
+                <select
+                  value={task.ratio}
+                  onChange={e => onUpdate({ ratio: e.target.value as '16:9' | '9:16' | '1:1' })}
+                  className="w-12 px-1 py-1 bg-[#1a1a2a] border border-gray-700 rounded text-[10px] text-center cursor-pointer focus:outline-none focus:border-cyan-500"
+                  title="Tỷ lệ ảnh"
+                >
+                  <option value="9:16">9:16</option>
+                  <option value="16:9">16:9</option>
+                  <option value="1:1">1:1</option>
+                </select>
+                <select
+                  value={task.count}
+                  onChange={e => onUpdate({ count: parseInt(e.target.value) })}
+                  className="w-12 px-1 py-1 bg-[#1a1a2a] border border-gray-700 rounded text-[10px] text-center cursor-pointer focus:outline-none focus:border-cyan-500"
+                  title="Số lượng ảnh"
+                >
+                  <option value={1}>×1</option>
+                  <option value={2}>×2</option>
+                  <option value={3}>×3</option>
+                  <option value={4}>×4</option>
+                </select>
+              </>
             ) : (
-              <span className="text-[10px] text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded" title="Số lượng ảnh">×{task.count}</span>
+              <>
+                <span className="text-[10px] text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded">{task.ratio}</span>
+                <span className="text-[10px] text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded">×{task.count}</span>
+              </>
             )}
           </div>
         </div>
