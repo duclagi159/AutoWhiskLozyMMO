@@ -193,13 +193,17 @@ export default function App() {
       log(`[Task #${task.order}] Token: ${accountBearerToken ? `ya29...${accountBearerToken.slice(-8)} ✅` : 'None ❌ (using cookies)'}`, 'info');
       updateTask(task.id, { status: 'generating', statusText: 'Generating...' });
 
+      const latestTask = await new Promise<Task>(resolve => {
+        setTasks(prev => { resolve(prev.find(t => t.id === task.id) || task); return prev; });
+      });
+
       const result = await invoke<{ success: boolean; images?: { savedPath?: string; encodedImage?: string }[]; error?: string; projectLink?: string; diagInfo?: string }>('generate_image', {
         cookies: accountCookies || '',
         bearerToken: accountBearerToken || '',
         headers: accountHeaders,
-        prompt: task.prompt,
-        aspectRatio: task.ratio,
-        count: task.count,
+        prompt: latestTask.prompt,
+        aspectRatio: latestTask.ratio,
+        count: latestTask.count,
         saveFolder: saveFolder || undefined,
         refImages: refImages.length > 0 ? refImages.map(r => r.url) : undefined,
       });
@@ -223,6 +227,7 @@ export default function App() {
               const accs = JSON.parse(raw);
               const updated = accs.map((a: any) => a.id === accountId ? { ...a, projectLink: result.projectLink } : a);
               localStorage.setItem('autowhisk_accounts', JSON.stringify(updated));
+              window.dispatchEvent(new Event('accounts-updated'));
             }
           } catch { }
         }
