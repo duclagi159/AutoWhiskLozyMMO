@@ -1,5 +1,4 @@
-import { useRef } from 'react';
-import type { Task } from './types';
+import type { Task } from './AutoWhiskTab';
 
 interface Props {
   task: Task;
@@ -7,70 +6,48 @@ interface Props {
   accountEmail?: string;
   onUpdate: (updates: Partial<Task>) => void;
   onRemove: () => void;
-  onPreviewVideo: (url: string, taskOrder: number) => void;
+  onPreviewImage: (url: string, taskOrder: number) => void;
   onReset: () => void;
 }
 
 const STATUS_CONFIG: Record<string, { bg: string; text: string; label: string; icon: string }> = {
   pending: { bg: 'bg-gray-700/50', text: 'text-gray-300', label: 'Chờ', icon: '⏳' },
   queued: { bg: 'bg-yellow-600/30', text: 'text-yellow-300', label: 'Hàng đợi', icon: '📋' },
-  'getting-token': { bg: 'bg-blue-600/30', text: 'text-blue-300', label: 'Token', icon: '🔐' },
-  uploading: { bg: 'bg-purple-600/30', text: 'text-purple-300', label: 'Upload', icon: '📤' },
-  generating: { bg: 'bg-cyan-600/30', text: 'text-cyan-300', label: 'Tạo', icon: '🎬' },
-  polling: { bg: 'bg-indigo-600/30', text: 'text-indigo-300', label: 'Chờ', icon: '⏱️' },
+  generating: { bg: 'bg-cyan-600/30', text: 'text-cyan-300', label: 'Tạo', icon: '🎨' },
   done: { bg: 'bg-green-600/30', text: 'text-green-300', label: 'Xong', icon: '✅' },
   error: { bg: 'bg-red-600/30', text: 'text-red-300', label: 'Lỗi', icon: '❌' },
-  running: { bg: 'bg-blue-600/30', text: 'text-blue-300', label: 'Chạy', icon: '🔄' },
 };
 
 const DEFAULT_STATUS = { bg: 'bg-gray-700/50', text: 'text-gray-300', label: '?', icon: '❓' };
 
-export function TaskRow({ task, isCurrentTask, accountEmail, onUpdate, onRemove, onPreviewVideo, onReset }: Props) {
-  const startInputRef = useRef<HTMLInputElement>(null);
-  const endInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (type: 'start' | 'end', file: File | null) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      onUpdate(type === 'start' ? { startImage: base64 } : { endImage: base64 });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const isRunning = ['queued', 'getting-token', 'uploading', 'generating', 'polling'].includes(task.status);
+export function TaskRow({ task, isCurrentTask, accountEmail, onUpdate, onRemove, onPreviewImage, onReset }: Props) {
+  const isRunning = ['queued', 'generating'].includes(task.status);
   const editDisabled = task.status !== 'pending';
   const statusConfig = STATUS_CONFIG[task.status] || DEFAULT_STATUS;
-  const hasImages = task.startImage || task.endImage;
 
   const renderResultSlots = () => {
     const slots = [];
-    for (let i = 0; i < 4; i++) {
-      const op = task.operations?.[i];
-      const videoUrl = task.results?.[i] || op?.media_url;
-      const isSuccess = op?.status === 'MEDIA_GENERATION_STATUS_SUCCESSFUL';
-      const isFailed = op?.status === 'MEDIA_GENERATION_STATUS_FAILED';
-      const isPending = op && !isSuccess && !isFailed;
+    for (let i = 0; i < task.count; i++) {
+      const imageUrl = task.results?.[i];
 
-      if (videoUrl) {
+      if (imageUrl) {
         slots.push(
           <div
             key={i}
-            onClick={() => onPreviewVideo(videoUrl, task.order)}
+            onClick={() => onPreviewImage(imageUrl, task.order)}
             className="w-12 h-12 rounded overflow-hidden cursor-pointer border-2 border-green-500/50 hover:border-green-400 transition-all hover:scale-105"
-            title="Click để xem video"
+            title="Click để xem ảnh"
           >
-            <video src={videoUrl} className="w-full h-full object-cover" muted preload="metadata" />
+            <img src={imageUrl} className="w-full h-full object-cover" alt={`Result ${i + 1}`} />
           </div>
         );
-      } else if (isFailed) {
+      } else if (task.status === 'generating') {
+        slots.push(
+          <div key={i} className="w-12 h-12 rounded bg-cyan-900/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 animate-pulse" title="Đang tạo">🎨</div>
+        );
+      } else if (task.status === 'error') {
         slots.push(
           <div key={i} className="w-12 h-12 rounded bg-red-900/30 border border-red-500/50 flex items-center justify-center text-red-400" title="Thất bại">✗</div>
-        );
-      } else if (isPending) {
-        slots.push(
-          <div key={i} className="w-12 h-12 rounded bg-yellow-900/20 border border-yellow-500/30 flex items-center justify-center text-yellow-400 animate-pulse" title="Đang xử lý">⏳</div>
         );
       } else {
         slots.push(
@@ -113,30 +90,6 @@ export function TaskRow({ task, isCurrentTask, accountEmail, onUpdate, onRemove,
         />
       </td>
 
-      <td className="p-2">
-        <input ref={startInputRef} type="file" accept="image/*" onChange={e => handleFileChange('start', e.target.files?.[0] || null)} className="hidden" />
-        <input ref={endInputRef} type="file" accept="image/*" onChange={e => handleFileChange('end', e.target.files?.[0] || null)} className="hidden" />
-        <div className="flex gap-1 justify-center">
-          {task.startImage ? (
-            <div className="relative group">
-              <img src={task.startImage} alt="S" className="w-10 h-10 object-cover rounded cursor-pointer border border-pink-500/50 hover:border-pink-400" onClick={() => !editDisabled && startInputRef.current?.click()} />
-              {!editDisabled && <button onClick={() => onUpdate({ startImage: undefined })} className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] opacity-0 group-hover:opacity-100">×</button>}
-            </div>
-          ) : (
-            <div onClick={() => !editDisabled && startInputRef.current?.click()} className={`w-10 h-10 border border-dashed border-pink-500/50 rounded flex items-center justify-center text-pink-400 text-[10px] cursor-pointer hover:bg-pink-500/10 ${editDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>S</div>
-          )}
-          {task.endImage ? (
-            <div className="relative group">
-              <img src={task.endImage} alt="E" className="w-10 h-10 object-cover rounded cursor-pointer border border-gray-500/50 hover:border-gray-400" onClick={() => !editDisabled && endInputRef.current?.click()} />
-              {!editDisabled && <button onClick={() => onUpdate({ endImage: undefined })} className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] opacity-0 group-hover:opacity-100">×</button>}
-            </div>
-          ) : (
-            <div onClick={() => !editDisabled && endInputRef.current?.click()} className={`w-10 h-10 border border-dashed border-gray-600 rounded flex items-center justify-center text-gray-500 text-[10px] cursor-pointer hover:bg-gray-500/10 ${editDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>E</div>
-          )}
-        </div>
-        {hasImages && <div className="text-[9px] text-center text-cyan-400 mt-0.5">I2V</div>}
-      </td>
-
       <td className="p-2 text-center">
         <div className="flex flex-col items-center gap-0.5">
           <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${statusConfig.bg} ${statusConfig.text}`}>
@@ -150,7 +103,18 @@ export function TaskRow({ task, isCurrentTask, accountEmail, onUpdate, onRemove,
       </td>
 
       <td className="p-2">
-        <div className="flex gap-1 justify-center">{renderResultSlots()}</div>
+        <div className="flex gap-1 justify-center items-center">
+          {renderResultSlots()}
+          {task.projectLink && (
+            <a
+              href={task.projectLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-8 h-8 rounded bg-blue-600/30 border border-blue-500/50 hover:bg-blue-600/60 flex items-center justify-center text-blue-400 transition-colors ml-1"
+              title={`Mở project: ${task.projectLink}`}
+            >🔗</a>
+          )}
+        </div>
       </td>
 
       <td className="p-2 text-center">

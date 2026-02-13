@@ -17,9 +17,10 @@ export interface Task {
   count: number;
   status: 'pending' | 'queued' | 'generating' | 'done' | 'error';
   statusText?: string;
-  results: string[]; // saved image paths
+  results: string[];
   error?: string;
   accountId?: string;
+  projectLink?: string;
 }
 
 export interface LogEntry {
@@ -212,10 +213,10 @@ export default function App() {
         const paths = result.images
           .filter(img => img.savedPath || img.encodedImage)
           .map(img => img.savedPath || img.encodedImage || '');
-        log(`[Task #${task.order}] Done ${paths.length}/${task.count} images`, 'success');
+        log(`[Task #${task.order}] ✅ Done ${paths.length}/${task.count} images`, 'success');
 
-        // Auto-save project link to account
         if (result.projectLink) {
+          log(`[Task #${task.order}] 🔗 Project: ${result.projectLink}`, 'info');
           try {
             const raw = localStorage.getItem('autowhisk_accounts');
             if (raw) {
@@ -230,6 +231,7 @@ export default function App() {
           status: 'done',
           statusText: `${paths.length} images`,
           results: paths,
+          projectLink: result.projectLink || '',
           selected: false,
         });
       } else {
