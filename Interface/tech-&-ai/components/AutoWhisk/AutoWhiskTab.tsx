@@ -322,8 +322,18 @@ export default function App() {
     log('⏹️ Đã dừng tất cả!', 'info');
   };
 
-  const runSelected = () => runTasks(tasks.filter(t => t.selected));
-  const runAll = () => runTasks(tasks);
+  const getLatestTasks = (): Promise<Task[]> => new Promise(resolve => {
+    setTasks(prev => { resolve([...prev]); return prev; });
+  });
+
+  const runSelected = async () => {
+    const latest = await getLatestTasks();
+    runTasks(latest.filter(t => t.selected));
+  };
+  const runAll = async () => {
+    const latest = await getLatestTasks();
+    runTasks(latest);
+  };
 
   const allImages = tasks.flatMap(t =>
     (t.results || []).map((url, i) => ({ url, taskOrder: t.order, index: i }))
