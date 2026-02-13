@@ -41,7 +41,7 @@ export function TaskTable({
   isRunning,
   onPreviewImage,
 }: Props) {
-  const [globalCount, setGlobalCount] = useState<number>(1);
+  const [globalCount, setGlobalCount] = useState<number>(2);
   const [globalRatio, setGlobalRatio] = useState<'16:9' | '9:16' | '1:1'>('9:16');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
