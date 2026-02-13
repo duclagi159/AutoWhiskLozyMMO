@@ -80,20 +80,14 @@ export function TaskRow({ task, isCurrentTask, accountEmail, onUpdate, onRemove,
       </td>
 
       <td className="p-2">
-        <div className="flex gap-2 items-start">
-          <textarea
-            value={task.prompt}
-            onChange={e => onUpdate({ prompt: e.target.value })}
-            disabled={editDisabled}
-            placeholder="Nhập prompt..."
-            rows={2}
-            className="flex-1 px-2 py-1.5 bg-[#1a1a2a] border border-gray-700 rounded-lg text-sm resize-none focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed placeholder-gray-600"
-          />
-          <div className="flex flex-col items-center gap-1 min-w-[32px]">
-            <span className="text-[10px] text-gray-400 bg-gray-800/60 px-1.5 py-0.5 rounded">{task.ratio}</span>
-            <span className="text-[10px] text-gray-400 bg-gray-800/60 px-1.5 py-0.5 rounded">×{task.count}</span>
-          </div>
-        </div>
+        <textarea
+          value={task.prompt}
+          onChange={e => onUpdate({ prompt: e.target.value })}
+          disabled={editDisabled}
+          placeholder="Nhập prompt..."
+          rows={2}
+          className="w-full px-2 py-1.5 bg-[#1a1a2a] border border-gray-700 rounded-lg text-sm resize-none focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed placeholder-gray-600"
+        />
       </td>
 
       <td className="p-2 text-center">
@@ -122,6 +116,6 @@ export function TaskRow({ task, isCurrentTask, accountEmail, onUpdate, onRemove,
           <button onClick={onRemove} className="w-7 h-7 bg-red-600/50 hover:bg-red-600 rounded text-xs transition-colors flex items-center justify-center">🗑️</button>
         </div>
       </td>
-    </tr>
+    </tr >
   );
 }

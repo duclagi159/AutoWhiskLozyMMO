@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (data.bearerToken) {
                 showMsg('success', '✅ Có Cookie + Token! (Chưa lấy được Gmail)');
             } else {
-                showMsg('success', '⚠️ Có Cookie nhưng chưa có Token. Tạo 1 ảnh trên Whisk rồi bấm lại.');
+                showMsg('success', '✅ Có Cookie! Token sẽ tự động lấy khi tạo ảnh.');
             }
         });
     });
