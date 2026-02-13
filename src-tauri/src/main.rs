@@ -17,10 +17,15 @@ async fn generate_image(
     headers: Option<std::collections::HashMap<String, String>>,
     ref_images: Option<Vec<String>>,
 ) -> Result<serde_json::Value, String> {
+    println!(
+        "[generate_image] aspect_ratio={:?}, count={:?}",
+        aspect_ratio, count
+    );
     let ratio = aspect_ratio.unwrap_or_else(|| "16:9".to_string());
     let cnt = count.unwrap_or(1);
     let c = cookies.unwrap_or_default();
     let t = bearer_token.unwrap_or_default();
+    println!("[generate_image] resolved ratio={}, count={}", ratio, cnt);
 
     let result = whisk::generate_image_async(
         &c,

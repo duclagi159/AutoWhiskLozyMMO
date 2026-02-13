@@ -484,8 +484,8 @@ pub async fn generate_image_async(
     };
 
     diag.push_str(&format!(
-        "[API start: ratio={}, count={}] ",
-        api_ratio, count
+        "[API start: inputRatio={}, ratio={}, count={}] ",
+        aspect_ratio, api_ratio, count
     ));
 
     let mut tasks = Vec::new();

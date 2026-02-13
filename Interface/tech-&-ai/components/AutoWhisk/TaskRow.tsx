@@ -139,15 +139,6 @@ export function TaskRow({ task, isCurrentTask, accountEmail, onUpdate, onRemove,
       <td className="p-2">
         <div className="flex gap-1 justify-center items-center">
           {renderResultSlots()}
-          {task.projectLink && (
-            <a
-              href={task.projectLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-8 h-8 rounded bg-blue-600/30 border border-blue-500/50 hover:bg-blue-600/60 flex items-center justify-center text-blue-400 transition-colors ml-1"
-              title={`Mở project: ${task.projectLink}`}
-            >🔗</a>
-          )}
         </div>
       </td>
 

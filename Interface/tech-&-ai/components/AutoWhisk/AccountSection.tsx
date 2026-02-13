@@ -223,17 +223,21 @@ export function AccountSection({ selectedAccounts, onSelectAccounts, onLog, onAc
                     </div>
                   </div>
 
-                  {/* Project Link - Auto-generated */}
+                  {/* Project Link - Copy to clipboard */}
                   <div className="flex items-center gap-1 min-w-0">
                     {acc.projectLink ? (
-                      <a
-                        href={acc.projectLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={e => e.stopPropagation()}
-                        className="text-[10px] text-cyan-400 hover:text-cyan-300 truncate max-w-[250px] underline"
-                        title={acc.projectLink}
-                      >🔗 {acc.projectLink.replace(/^https?:\/\//, '').substring(0, 40)}</a>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(acc.projectLink!);
+                          const btn = e.currentTarget;
+                          const orig = btn.textContent;
+                          btn.textContent = '✅ Copied!';
+                          setTimeout(() => { btn.textContent = orig; }, 1500);
+                        }}
+                        className="text-[10px] text-cyan-400 hover:text-cyan-300 truncate max-w-[250px] cursor-pointer bg-transparent border-none"
+                        title={`Click để copy: ${acc.projectLink}`}
+                      >🔗 {acc.projectLink.replace(/^https?:\/\//, '').substring(0, 40)}</button>
                     ) : (
                       <span className="text-[10px] text-gray-600">🔗 Chưa có dự án</span>
                     )}
