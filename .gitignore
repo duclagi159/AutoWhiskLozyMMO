@@ -23,3 +23,9 @@ src-tauri/gen/schemas/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Scripts
+*.bat
+*.ps1
+*.vbs
+dev-server.js
