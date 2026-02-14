@@ -85,7 +85,7 @@ export function LogPanel({ logs, onClear }: Props) {
         <div
           ref={containerRef}
           onScroll={handleScroll}
-          className="bg-[#0a0a0f] p-3 font-mono text-xs max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent"
+          className="bg-[#0a0a0f] p-3 font-mono text-xs max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent select-text"
         >
           {logs.length === 0 ? (
             <div className="text-gray-600 text-center py-4">

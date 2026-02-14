@@ -33,6 +33,7 @@ interface RefImage {
   id: string;
   url: string;
   name: string;
+  mediaName?: string;
 }
 
 export default function App() {
@@ -57,6 +58,7 @@ export default function App() {
   const [refImages, setRefImages] = useState<RefImage[]>([]);
   const [saveFolder, setSaveFolder] = useState('');
   const [previewImage, setPreviewImage] = useState<{ url: string; taskOrder: number } | null>(null);
+  const [showRefModal, setShowRefModal] = useState(false);
   const stopFlag = useRef(false);
   const orderCounter = useRef<number>((() => {
     try {
@@ -147,8 +149,7 @@ export default function App() {
   };
 
   const resetTask = (id: string) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'pending' as const, statusText: undefined, results: [], error: undefined, projectLink: undefined, selected: false, accountId: undefined } : t));
-    log(`Reset task`, 'info');
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'pending' as const, statusText: undefined, error: undefined, selected: false } : t));
   };
 
   const toggleAll = (checked: boolean) => {
@@ -219,14 +220,10 @@ export default function App() {
         aspectRatio: latestTask.ratio,
         count: latestTask.count,
         saveFolder: saveFolder || undefined,
-        refImages: refImages.length > 0 ? refImages.map(r => r.url) : undefined,
         existingWorkflowId,
       });
 
-      // Show diagnostic info
-      if (result.diagInfo) {
-        log(`[Task #${task.order}] ⏱️ ${result.diagInfo}`, 'info');
-      }
+
 
       if (result.success && result.images?.length) {
         const paths = result.images
@@ -235,7 +232,7 @@ export default function App() {
         log(`[Task #${task.order}] ✅ Done ${paths.length}/${task.count} images`, 'success');
 
         if (result.projectLink) {
-          log(`[Task #${task.order}] 🔗 Project: ${result.projectLink}`, 'info');
+
           try {
             const raw = localStorage.getItem('autowhisk_accounts');
             if (raw) {
@@ -300,12 +297,49 @@ export default function App() {
 
     // Task queue
     const taskQueue = [...validTasks];
+    const refUploadedAccounts = new Set<string>();
 
     // Worker function
     const worker = async (accountId: string, threadIdx: number): Promise<void> => {
       while (taskQueue.length > 0 && !stopFlag.current) {
         const task = taskQueue.shift();
         if (!task) break;
+
+        if (refImages.length > 0 && !refUploadedAccounts.has(accountId)) {
+          refUploadedAccounts.add(accountId);
+          try {
+            const ACCT_KEY = 'autowhisk_accounts';
+            const raw = localStorage.getItem(ACCT_KEY);
+            if (raw) {
+              const accounts = JSON.parse(raw);
+              const acc = accounts.find((a: any) => a.id === accountId);
+              if (acc?.cookies) {
+                let workflowId: string | undefined;
+                if (acc.projectLink) {
+                  const parts = acc.projectLink.split('/');
+                  workflowId = parts[parts.length - 1];
+                }
+                const uploadResult = await invoke<{ success: boolean; uploadedCount?: number; workflowId?: string }>('upload_ref_images', {
+                  cookies: acc.cookies,
+                  refImages: refImages.map(r => r.url),
+                  existingWorkflowId: workflowId,
+                });
+                if (uploadResult.success) {
+                  log(`[${acc.email || accountId.slice(-8)}] 🖼️ Fill ${uploadResult.uploadedCount} ảnh tham chiếu thành công`, 'success');
+                  if (uploadResult.workflowId && !acc.projectLink) {
+                    const updated = accounts.map((a: any) => a.id === accountId ? { ...a, projectLink: `https://labs.google/fx/tools/whisk/project/${uploadResult.workflowId}` } : a);
+                    localStorage.setItem(ACCT_KEY, JSON.stringify(updated));
+                    window.dispatchEvent(new Event('accounts-updated'));
+                  }
+                } else {
+                  log(`[${acc.email || accountId.slice(-8)}] ⚠️ Fill ảnh tham chiếu thất bại`, 'error');
+                }
+              }
+            }
+          } catch (err: any) {
+            log(`[${accountId.slice(-8)}] ❌ Fill ref error: ${err.message || err}`, 'error');
+          }
+        }
 
         log(`[Thread ${accountId.slice(-8)}-${threadIdx}] Processing task #${task.order}`, 'step');
         await processTask(task, accountId);
@@ -358,7 +392,29 @@ export default function App() {
     runTasks(latest);
   };
 
-  const allImages = tasks.flatMap(t =>
+  const downloadSelected = async () => {
+    if (!saveFolder) { log('Bạn chưa chọn thư mục để tải!', 'error'); return; }
+    const selectedDone = tasks.filter(t => t.selected && t.status === 'done' && t.results.length > 0);
+    if (selectedDone.length === 0) { log('Không có ảnh để tải!', 'error'); return; }
+    let count = 0;
+    for (const task of selectedDone) {
+      for (let i = 0; i < task.results.length; i++) {
+        try {
+          const link = document.createElement('a');
+          link.href = task.results[i];
+          link.download = `task-${task.order}-${i + 1}.jpg`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          count++;
+          await new Promise(r => setTimeout(r, 300));
+        } catch { }
+      }
+    }
+    log(`⬇️ Đã tải ${count} ảnh`, 'success');
+  };
+
+  const allImages = tasks.filter(t => t.status === 'done').flatMap(t =>
     (t.results || []).map((url, i) => ({ url, taskOrder: t.order, index: i }))
   );
 
@@ -368,7 +424,7 @@ export default function App() {
   const totalThreads = selectedAccounts.reduce((sum, a) => sum + a.threads, 0);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-gray-200 flex flex-col">
+    <div className="h-screen bg-[#0a0a0f] text-gray-200 flex flex-col overflow-hidden">
       <header className="sticky top-0 z-50 bg-[#0a0a0f]/95 backdrop-blur border-b border-gray-800 px-4 py-3 shrink-0">
         <div className="flex justify-between items-center">
           <h1 className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent flex items-center gap-2">
@@ -376,6 +432,15 @@ export default function App() {
           </h1>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-gray-500">{tasks.length} tasks | {pendingCount} pending | {totalThreads} threads</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1a1a2a] rounded-lg border border-gray-800">
+              <span className="text-sm">📁</span>
+              <button
+                onClick={pickFolder}
+                className="px-2 py-0.5 bg-[#12121a] border border-gray-700 hover:border-gray-500 rounded text-xs text-gray-400 hover:text-gray-200 transition-colors text-left truncate max-w-[200px]"
+              >
+                {saveFolder || 'Chọn thư mục...'}
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -385,7 +450,7 @@ export default function App() {
           <AccountSection selectedAccounts={selectedAccounts} onSelectAccounts={setSelectedAccounts} onLog={log} onAccountsLoaded={setAccountEmails} isRunning={isRunning} />
         </div>
 
-        <div className="flex-1 flex gap-4 min-h-0">
+        <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
           <div className="flex-[2] bg-[#12121a] rounded-xl border border-gray-800 overflow-hidden flex flex-col min-w-0">
             <TaskTable
               tasks={tasks}
@@ -406,76 +471,24 @@ export default function App() {
               isRunning={isRunning}
               onPreviewImage={(url: string, taskOrder: number) => setPreviewImage({ url, taskOrder })}
               onGlobalSettingsChange={(ratio, count) => { globalSettingsRef.current = { ratio, count }; }}
+              onDownloadSelected={downloadSelected}
+              onShowRefModal={() => setShowRefModal(true)}
+              refImageCount={refImages.length}
             />
           </div>
 
-          <div className="flex-1 flex flex-col gap-4 min-w-[300px]">
-            {/* Lưu vào bar */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-[#1a1a2a] rounded-xl border border-gray-800 shrink-0">
-              <span className="text-sm">📁</span>
-              <span className="text-xs text-gray-400">Lưu vào</span>
-              <button
-                onClick={pickFolder}
-                className="flex-1 px-2 py-1 bg-[#12121a] border border-gray-700 hover:border-gray-500 rounded text-xs text-gray-400 hover:text-gray-200 transition-colors text-left truncate"
-              >
-                {saveFolder || 'Chọn thư mục...'}
-              </button>
-            </div>
+          <div className="flex-1 flex flex-col gap-4 min-w-[300px] min-h-0 overflow-hidden">
 
-            {/* Reference Images panel */}
-            <div className="bg-[#12121a] rounded-xl border border-gray-800 overflow-hidden flex flex-col shrink-0">
-              <div className="px-3 py-2 bg-[#1a1a2a] border-b border-gray-800 flex items-center justify-between shrink-0">
-                <span className="text-xs text-gray-400">🖼️ Ảnh tham chiếu ({refImages.length}/3)</span>
-                <label className="px-2 py-0.5 bg-red-700 hover:bg-red-600 rounded text-[10px] font-medium cursor-pointer transition-colors">
-                  Fill Ref
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files || []);
-                      const remaining = 3 - refImages.length;
-                      const toAdd = files.slice(0, remaining);
-                      toAdd.forEach((file: File) => {
-                        const reader = new FileReader();
-                        reader.onload = (ev: ProgressEvent<FileReader>) => {
-                          setRefImages(prev => {
-                            if (prev.length >= 3) return prev;
-                            return [...prev, { id: Date.now().toString() + Math.random(), url: ev.target?.result as string, name: file.name }];
-                          });
-                        };
-                        reader.readAsDataURL(file);
-                      });
-                      e.target.value = '';
-                    }}
-                  />
-                </label>
-              </div>
-              <div className="flex gap-2 p-2 min-h-[70px]">
-                {refImages.length === 0 ? (
-                  <div className="flex-1 flex items-center justify-center text-gray-600 text-xs">Chưa có ảnh tham chiếu</div>
-                ) : (
-                  refImages.map(img => (
-                    <div key={img.id} className="relative group w-16 h-16 rounded-lg overflow-hidden border border-gray-700 shrink-0">
-                      <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
-                      <button
-                        onClick={() => setRefImages(prev => prev.filter(i => i.id !== img.id))}
-                        className="absolute top-0 right-0 w-4 h-4 bg-red-600 rounded-bl text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      >✕</button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+
+
 
             {/* Logs panel */}
-            <div className="flex-1 bg-[#12121a] rounded-xl border border-gray-800 overflow-hidden flex flex-col min-h-[150px]">
+            <div className="bg-[#12121a] rounded-xl border border-gray-800 overflow-hidden flex flex-col shrink-0 max-h-[220px]">
               <LogPanel logs={logs} onClear={() => setLogs([])} />
             </div>
 
             {/* Image Gallery panel */}
-            <div className="flex-1 bg-[#12121a] rounded-xl border border-gray-800 overflow-hidden flex flex-col min-h-[150px]">
+            <div className="flex-1 bg-[#12121a] rounded-xl border border-gray-800 overflow-hidden flex flex-col">
               <div className="px-3 py-2 bg-[#1a1a2a] border-b border-gray-800 shrink-0">
                 <span className="text-xs text-gray-400">🖼️ Image ({allImages.length})</span>
               </div>
@@ -570,6 +583,91 @@ export default function App() {
                 <a href={previewImage.url} download={`image-task-${previewImage.taskOrder}.jpg`} className="px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded-lg text-xs font-medium transition-colors">
                   ⬇️ Download
                 </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRefModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowRefModal(false)}>
+          <div className="bg-[#12121a] rounded-xl w-full max-w-md border border-gray-700 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                🖼️ Ảnh tham chiếu ({refImages.length}/3)
+              </h3>
+              <button
+                onClick={() => setShowRefModal(false)}
+                className="w-8 h-8 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-5">
+              <div className="flex gap-3 min-h-[100px] flex-wrap">
+                {refImages.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center text-gray-600 text-sm">Chưa có ảnh tham chiếu</div>
+                ) : (
+                  refImages.map(img => (
+                    <div key={img.id} className="relative group w-20 h-20 rounded-lg overflow-hidden border border-gray-700 shrink-0">
+                      <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
+                      <button
+                        onClick={async () => {
+                          if (img.mediaName) {
+                            try {
+                              const raw = localStorage.getItem('autowhisk_accounts');
+                              if (raw) {
+                                const accs = JSON.parse(raw);
+                                const acc = accs.find((a: any) => a.cookies);
+                                if (acc?.cookies) {
+                                  await invoke('delete_ref_image', { cookies: acc.cookies, mediaNames: [img.mediaName] });
+                                }
+                              }
+                            } catch { }
+                          }
+                          setRefImages(prev => prev.filter(i => i.id !== img.id));
+                        }}
+                        className="absolute top-0 right-0 w-5 h-5 bg-red-600 rounded-bl text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >✕</button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="mt-4 flex justify-between items-center">
+                <label
+                  className="px-4 py-2 rounded-lg text-sm font-bold cursor-pointer transition-colors flex items-center gap-2"
+                  style={{ backgroundColor: '#ffbd59', color: '#000' }}
+                >
+                  ➕ Chọn ảnh
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      const remaining = 3 - refImages.length;
+                      const toAdd = files.slice(0, remaining);
+                      toAdd.forEach((file: File) => {
+                        const reader = new FileReader();
+                        reader.onload = (ev: ProgressEvent<FileReader>) => {
+                          setRefImages(prev => {
+                            if (prev.length >= 3) return prev;
+                            return [...prev, { id: Date.now().toString() + Math.random(), url: ev.target?.result as string, name: file.name }];
+                          });
+                        };
+                        reader.readAsDataURL(file);
+                      });
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+                <button
+                  onClick={() => setShowRefModal(false)}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-colors"
+                >
+                  Đóng
+                </button>
               </div>
             </div>
           </div>

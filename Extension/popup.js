@@ -2,44 +2,33 @@ const WHISK_URL = 'https://labs.google/fx/vi/tools/whisk/project';
 
 document.addEventListener('DOMContentLoaded', () => {
     const btnCopy = document.getElementById('btnCopy');
-    const btnGrab = document.getElementById('btnGrab');
     const btnOpen = document.getElementById('btnOpen');
     const btnClear = document.getElementById('btnClear');
 
-    loadStatus();
+    function grabCookies() {
+        chrome.runtime.sendMessage({ type: 'GRAB_ALL' }, (data) => {
+            if (data?.error || !data?.sessionToken) return loadStatus();
+            loadStatus();
+        });
+    }
+
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]?.url?.includes('labs.google')) {
+            grabCookies();
+        } else {
+            loadStatus();
+        }
+    });
 
     btnOpen.addEventListener('click', () => {
         chrome.tabs.create({ url: WHISK_URL });
         window.close();
     });
 
-    btnGrab.addEventListener('click', () => {
-        btnGrab.disabled = true;
-        btnGrab.textContent = '⏳ Đang lấy...';
-
-        chrome.runtime.sendMessage({ type: 'GRAB_ALL' }, (data) => {
-            btnGrab.disabled = false;
-            btnGrab.textContent = '🔄 Lấy Cookie';
-
-            if (data?.error) {
-                showMsg('error', `❌ ${data.error}`);
-                return;
-            }
-
-            if (!data?.sessionToken) {
-                showMsg('error', '❌ Không tìm thấy cookie! Đăng nhập labs.google trước.');
-                return;
-            }
-
-            loadStatus();
-            showMsg('success', data.email ? '✅ Cookie + Gmail OK!' : '✅ Cookie OK!');
-        });
-    });
-
     btnCopy.addEventListener('click', async () => {
         chrome.runtime.sendMessage({ type: 'GET_DATA' }, async (data) => {
             if (!data?.sessionToken) {
-                showMsg('error', '❌ Chưa có cookie! Bấm "Lấy Cookie" trước.');
+                showMsg('error', '❌ Chưa có cookie! Mở Whisk trước.');
                 return;
             }
 
@@ -47,7 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 id: `acc-${Date.now()}`,
                 email: data.email || 'Unknown',
                 cookies: data.cookies || '',
-                savedAt: new Date().toISOString()
+                savedAt: new Date().toISOString(),
+                expiresAt: data.expiresAt || null
             });
 
             await navigator.clipboard.writeText(exportData);
@@ -58,7 +48,21 @@ document.addEventListener('DOMContentLoaded', () => {
     btnClear.addEventListener('click', () => {
         chrome.runtime.sendMessage({ type: 'CLEAR' }, () => {
             loadStatus();
-            showMsg('success', '🗑️ Đã xóa!');
+
+            chrome.tabs.query({ url: 'https://labs.google/*' }, (tabs) => {
+                if (tabs.length > 0) {
+                    const tabId = tabs[0].id;
+                    chrome.tabs.reload(tabId);
+                    chrome.tabs.onUpdated.addListener(function listener(tid, info) {
+                        if (tid === tabId && info.status === 'complete') {
+                            chrome.tabs.onUpdated.removeListener(listener);
+                            setTimeout(loadStatus, 2000);
+                        }
+                    });
+                }
+            });
+
+            showMsg('success', '🗑️ Đã xóa & reload web!');
         });
     });
 
@@ -67,9 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const emailDisplayEl = document.getElementById('emailDisplay');
             const emailAvatarEl = document.getElementById('emailAvatar');
             const cookieStatusEl = document.getElementById('cookieStatus');
-            const tokenStatusEl = document.getElementById('tokenStatus');
-            const headersStatusEl = document.getElementById('headersStatus');
             const capturedAtEl = document.getElementById('capturedAt');
+            const expiresAtEl = document.getElementById('expiresAt');
 
             if (data?.sessionToken) {
                 const tokenShort = data.sessionToken.substring(0, 15) + '...';
@@ -88,26 +91,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     emailAvatarEl.style.background = '#374151';
                 }
 
-                tokenStatusEl.innerHTML = '<span class="token-badge ok">✅ Tự động</span>';
-
-                if (headersStatusEl) {
-                    headersStatusEl.textContent = 'Tự động';
-                    headersStatusEl.className = 'status-value ok';
-                }
-
                 if (data.capturedAt) {
                     capturedAtEl.textContent = new Date(data.capturedAt).toLocaleTimeString('vi-VN', { hour12: false });
                     capturedAtEl.className = 'status-value ok';
                 }
+
+                if (data.capturedAt) {
+                    const expDate = new Date(new Date(data.capturedAt).getTime() + 24 * 60 * 60 * 1000);
+                    const now = Date.now();
+                    const expired = expDate.getTime() <= now;
+                    expiresAtEl.textContent = expDate.toLocaleString('vi-VN', { hour12: false, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    expiresAtEl.className = expired ? 'status-value no' : 'status-value ok';
+                } else {
+                    expiresAtEl.textContent = '--';
+                    expiresAtEl.className = 'status-value no';
+                }
             } else {
                 cookieStatusEl.innerHTML = '<span class="token-badge no">❌ Chưa có</span>';
-                tokenStatusEl.innerHTML = '<span class="token-badge no">⏳ Cần cookie</span>';
-                if (headersStatusEl) {
-                    headersStatusEl.textContent = '0';
-                    headersStatusEl.className = 'status-value no';
-                }
                 capturedAtEl.textContent = '--';
                 capturedAtEl.className = 'status-value no';
+                expiresAtEl.textContent = '--';
+                expiresAtEl.className = 'status-value no';
                 emailDisplayEl.textContent = 'Chưa xác định';
                 emailDisplayEl.className = 'email-value no';
                 emailAvatarEl.textContent = '?';

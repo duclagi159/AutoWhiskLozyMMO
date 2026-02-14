@@ -1,23 +1,14 @@
 import { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { RefreshCw, Download, Package, ShieldCheck, Terminal, Cloud, Info, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 
-const REPO = 'duclagi159/AutoWhiskLozyMMO';
-const CURRENT_VERSION = '6.0.0';
-
-interface ReleaseInfo {
-    tag_name: string;
-    name: string;
-    body: string;
-    published_at: string;
-    assets: { name: string; browser_download_url: string; size: number }[];
-}
+const CURRENT_VERSION = '6.0.1';
 
 const UpgradeTab: React.FC = () => {
     const [status, setStatus] = useState<'idle' | 'checking' | 'uptodate' | 'available' | 'downloading' | 'done' | 'error'>('idle');
     const [remoteVersion, setRemoteVersion] = useState('');
     const [releaseNotes, setReleaseNotes] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
-    const [downloadProgress, setDownloadProgress] = useState(0);
     const [downloadUrl, setDownloadUrl] = useState('');
 
     useEffect(() => {
@@ -28,15 +19,13 @@ const UpgradeTab: React.FC = () => {
         setStatus('checking');
         setErrorMessage('');
         try {
-            const resp = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`);
-            if (!resp.ok) throw new Error(`GitHub API error: ${resp.status}`);
-            const release: ReleaseInfo = await resp.json();
-            const remote = release.tag_name.replace(/^v/, '');
+            const release: any = await invoke('check_update');
+            const remote = (release.tag_name || '').replace(/^v/, '');
 
             if (compareVersions(remote, CURRENT_VERSION) > 0) {
                 setRemoteVersion(remote);
                 setReleaseNotes(release.body || 'Không có thông tin cập nhật.');
-                const exeAsset = release.assets.find(a => a.name.endsWith('.exe'));
+                const exeAsset = (release.assets || []).find((a: any) => a.name?.endsWith('.exe'));
                 if (exeAsset) setDownloadUrl(exeAsset.browser_download_url);
                 setStatus('available');
             } else {
@@ -44,7 +33,7 @@ const UpgradeTab: React.FC = () => {
             }
         } catch (err: any) {
             setStatus('error');
-            setErrorMessage(err.message || 'Không thể kết nối đến máy chủ.');
+            setErrorMessage(typeof err === 'string' ? err : err.message || 'Không thể kết nối.');
         }
     };
 
@@ -55,42 +44,13 @@ const UpgradeTab: React.FC = () => {
             return;
         }
         setStatus('downloading');
-        setDownloadProgress(0);
-
         try {
-            const resp = await fetch(downloadUrl);
-            if (!resp.ok) throw new Error('Download failed');
-
-            const total = parseInt(resp.headers.get('content-length') || '0');
-            const reader = resp.body?.getReader();
-            if (!reader) throw new Error('Stream not supported');
-
-            const chunks: Uint8Array[] = [];
-            let received = 0;
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                chunks.push(value);
-                received += value.length;
-                if (total > 0) setDownloadProgress(Math.round((received / total) * 100));
-            }
-
-            const blob = new Blob(chunks);
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'autowhisk.exe';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            setDownloadProgress(100);
+            const savedPath: string = await invoke('download_update', { url: downloadUrl });
             setStatus('done');
+            setErrorMessage(savedPath);
         } catch (err: any) {
             setStatus('error');
-            setErrorMessage(err.message || 'Lỗi khi tải file.');
+            setErrorMessage(typeof err === 'string' ? err : err.message || 'Lỗi khi tải.');
         }
     };
 
@@ -130,30 +90,18 @@ const UpgradeTab: React.FC = () => {
                             {status === 'checking' ? 'Đang kiểm tra phiên bản...' :
                                 status === 'uptodate' ? 'Phần mềm đã được cập nhật' :
                                     status === 'available' ? `Phiên bản mới: v${remoteVersion}` :
-                                        status === 'downloading' ? `Đang tải: ${downloadProgress}%` :
-                                            status === 'done' ? 'Tải xong! Hãy thay thế file exe' :
+                                        status === 'downloading' ? 'Đang tải cập nhật...' :
+                                            status === 'done' ? 'Tải xong!' :
                                                 status === 'error' ? 'Có lỗi xảy ra' :
                                                     `Phiên bản hiện tại: v${CURRENT_VERSION}`}
                         </h3>
 
-                        {status === 'downloading' && (
-                            <div className="w-full max-w-md mb-4">
-                                <div className="w-full h-2.5 bg-zinc-800 rounded-full overflow-hidden mb-2">
-                                    <div
-                                        className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400 rounded-full transition-all duration-300 ease-out"
-                                        style={{ width: `${downloadProgress}%` }}
-                                    />
-                                </div>
-                                <p className="text-xs text-zinc-500 text-center font-mono">Đang tải autowhisk.exe...</p>
-                            </div>
-                        )}
-
                         <p className="text-zinc-500 mb-8 max-w-md text-sm leading-relaxed">
                             {status === 'checking' ? 'Đang kết nối GitHub để kiểm tra bản cập nhật mới nhất.' :
                                 status === 'uptodate' ? 'Bạn đang sử dụng phiên bản mới nhất.' :
-                                    status === 'available' ? 'Một phiên bản mới đã sẵn sàng. Tải về và thay thế file autowhisk.exe.' :
-                                        status === 'downloading' ? 'Vui lòng không tắt ứng dụng trong quá trình tải.' :
-                                            status === 'done' ? 'File đã được tải về. Tắt tool → thay thế autowhisk.exe → mở lại.' :
+                                    status === 'available' ? 'Một phiên bản mới đã sẵn sàng. Bấm tải để cập nhật.' :
+                                        status === 'downloading' ? 'Đang tải file cập nhật, vui lòng chờ...' :
+                                            status === 'done' ? 'File đã lưu. Tắt tool → đổi tên autowhisk_update.exe thành autowhisk.exe → mở lại.' :
                                                 status === 'error' ? errorMessage :
                                                     'Nhấn nút bên dưới để kiểm tra bản cập nhật.'}
                         </p>
@@ -164,23 +112,21 @@ const UpgradeTab: React.FC = () => {
                                     onClick={handleUpdate}
                                     className="w-full py-3.5 px-6 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20 hover:scale-[1.02] active:scale-[0.98]"
                                 >
-                                    <Download className="w-4 h-4 mr-2" /> Tải cập nhật
+                                    <Download className="w-4 h-4 mr-2" /> Tải cập nhật v{remoteVersion}
                                 </button>
                             ) : (
                                 <button
                                     onClick={handleCheck}
-                                    disabled={isBusy || status === 'uptodate'}
+                                    disabled={isBusy || status === 'uptodate' || status === 'done'}
                                     className={`
                     w-full py-3.5 px-6 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center
                     ${isBusy
                                             ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700'
-                                            : status === 'uptodate'
+                                            : status === 'uptodate' || status === 'done'
                                                 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 cursor-default'
-                                                : status === 'done'
-                                                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 cursor-default'
-                                                    : status === 'error'
-                                                        ? 'bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 cursor-pointer'
-                                                        : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600 cursor-pointer'
+                                                : status === 'error'
+                                                    ? 'bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 cursor-pointer'
+                                                    : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600 cursor-pointer'
                                         }
                   `}
                                 >

@@ -5,7 +5,11 @@ async function getSessionCookie() {
         url: 'https://labs.google',
         name: '__Secure-next-auth.session-token'
     });
-    return cookie?.value || '';
+    if (!cookie?.value) return null;
+    return {
+        value: cookie.value,
+        expiresAt: cookie.expirationDate ? new Date(cookie.expirationDate * 1000).toISOString() : null
+    };
 }
 
 async function extractEmailFromPage(tabId) {
@@ -53,9 +57,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'GRAB_ALL') {
         (async () => {
             try {
-                const sessionToken = await getSessionCookie();
+                const cookieData = await getSessionCookie();
 
-                if (!sessionToken) {
+                if (!cookieData) {
                     sendResponse({ error: 'Không tìm thấy cookie! Hãy đăng nhập labs.google trước.' });
                     return;
                 }
@@ -67,10 +71,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 }
 
                 const data = {
-                    sessionToken,
-                    cookies: `__Secure-next-auth.session-token=${sessionToken}`,
+                    sessionToken: cookieData.value,
+                    cookies: `__Secure-next-auth.session-token=${cookieData.value}`,
                     email,
-                    capturedAt: new Date().toISOString()
+                    capturedAt: new Date().toISOString(),
+                    expiresAt: cookieData.expiresAt
                 };
 
                 await chrome.storage.local.set({ [STORAGE_KEY]: data });
@@ -102,20 +107,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.url?.includes('labs.google/fx')) {
         (async () => {
-            const sessionToken = await getSessionCookie();
-            if (!sessionToken) return;
+            const cookieData = await getSessionCookie();
+            if (!cookieData) return;
 
             const stored = await chrome.storage.local.get(STORAGE_KEY);
             const existing = stored[STORAGE_KEY] || {};
 
-            existing.sessionToken = sessionToken;
-            existing.cookies = `__Secure-next-auth.session-token=${sessionToken}`;
+            existing.sessionToken = cookieData.value;
+            existing.cookies = `__Secure-next-auth.session-token=${cookieData.value}`;
             existing.capturedAt = new Date().toISOString();
+            existing.expiresAt = cookieData.expiresAt;
 
             const email = await extractEmailFromPage(tabId);
             if (email) existing.email = email;
 
             await chrome.storage.local.set({ [STORAGE_KEY]: existing });
+            chrome.action.setBadgeText({ text: '✓' });
+            chrome.action.setBadgeBackgroundColor({ color: '#22c55e' });
         })();
     }
 });

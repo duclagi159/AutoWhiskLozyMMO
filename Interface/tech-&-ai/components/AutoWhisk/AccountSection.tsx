@@ -11,6 +11,7 @@ interface AccountInfo {
   is_expired: boolean;
   expires_in?: string;
   savedAt?: string;
+  expiresAt?: string;
   projectLink?: string;
 }
 
@@ -54,19 +55,18 @@ export function AccountSection({ selectedAccounts, onSelectAccounts, onLog, onAc
 
     // Check expiry (7 days)
     const now = Date.now();
+    const COOKIE_TTL = 24 * 60 * 60 * 1000;
     const updated = list.map(acc => {
-      if (acc.savedAt) {
-        const saved = new Date(acc.savedAt).getTime();
-        const remaining = (saved + 24 * 60 * 60 * 1000) - now;
-        if (remaining <= 0) {
-          return { ...acc, is_expired: true, expires_in: 'Hết hạn' };
-        } else {
-          const hours = Math.floor(remaining / (60 * 60 * 1000));
-          const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
-          return { ...acc, is_expired: false, expires_in: `${hours}h ${minutes}m` };
-        }
+      if (!acc.savedAt) return acc;
+
+      const expireTime = new Date(acc.savedAt).getTime() + COOKIE_TTL;
+      const remaining = expireTime - now;
+      if (remaining <= 0) {
+        return { ...acc, is_expired: true, expires_in: 'Hết hạn' };
       }
-      return acc;
+      const hours = Math.floor(remaining / 3600000);
+      const minutes = Math.floor((remaining % 3600000) / 60000);
+      return { ...acc, is_expired: false, expires_in: `${hours}h ${minutes}m` };
     });
 
     setAccounts(updated);
@@ -112,6 +112,7 @@ export function AccountSection({ selectedAccounts, onSelectAccounts, onLog, onAc
       has_cookies: true,
       is_expired: false,
       savedAt: parsed.savedAt || new Date().toISOString(),
+      expiresAt: parsed.expiresAt || undefined,
     });
     setStoredAccounts(updated);
 
@@ -299,11 +300,7 @@ export function AccountSection({ selectedAccounts, onSelectAccounts, onLog, onAc
               );
             })}
 
-            {selectedAccounts.length > 0 && (
-              <div className="pt-2 border-t border-gray-800 text-xs text-gray-400 text-center">
-                Tổng: {selectedAccounts.length} account × {totalThreads} luồng song song
-              </div>
-            )}
+
           </div>
         )}
       </div>

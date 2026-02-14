@@ -8,6 +8,7 @@ const GENERATE_URL: &str = "https://aisandbox-pa.googleapis.com/v1/whisk:generat
 const WORKFLOW_URL: &str = "https://labs.google/fx/api/trpc/media.createOrUpdateWorkflow";
 const SESSION_URL: &str = "https://labs.google/fx/api/auth/session";
 const UPLOAD_URL: &str = "https://labs.google/fx/api/trpc/backbone.uploadImage";
+const DELETE_MEDIA_URL: &str = "https://labs.google/fx/api/trpc/media.deleteMedia";
 
 fn default_headers() -> HeaderMap {
     let mut h = HeaderMap::new();
@@ -33,9 +34,9 @@ fn default_headers() -> HeaderMap {
     h.insert("x-browser-channel", HeaderValue::from_static("stable"));
     h.insert(
         "x-browser-copyright",
-        HeaderValue::from_static("Copyright 2025 Google LLC. All Rights reserved."),
+        HeaderValue::from_static("Copyright 2026 Google LLC. All Rights reserved."),
     );
-    h.insert("x-browser-year", HeaderValue::from_static("2025"));
+    h.insert("x-browser-year", HeaderValue::from_static("2026"));
     h
 }
 
@@ -149,7 +150,7 @@ async fn upload_reference_image(
     mime: &str,
     workflow_id: &str,
     session_id: &str,
-) -> Result<bool, String> {
+) -> Result<Option<String>, String> {
     let engine = base64::engine::general_purpose::STANDARD;
     let b64 = engine.encode(image_data);
     let raw_bytes = format!("data:{};base64,{}", mime, b64);
@@ -176,6 +177,39 @@ async fn upload_reference_image(
             "Referer",
             format!("https://labs.google/fx/tools/whisk/project/{}", workflow_id),
         )
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        return Ok(None);
+    }
+
+    let data: Value = resp.json().await.unwrap_or(json!({}));
+    let media_name = data["result"]["data"]["json"]["name"]
+        .as_str()
+        .or_else(|| data["result"]["data"]["json"]["mediaName"].as_str())
+        .map(|s| s.to_string());
+    Ok(media_name)
+}
+
+pub async fn delete_reference_image(
+    cookies: &str,
+    media_names: Vec<String>,
+) -> Result<bool, String> {
+    let client = build_client()?;
+    let body = json!({
+        "json": {
+            "names": media_names
+        }
+    });
+
+    let resp = client
+        .post(DELETE_MEDIA_URL)
+        .header("Cookie", cookies)
+        .header("Content-Type", "application/json")
+        .header("Referer", "https://labs.google/fx/vi/tools/whisk")
         .json(&body)
         .send()
         .await
@@ -261,9 +295,9 @@ async fn call_generate_api(
         headers.insert("x-browser-channel", HeaderValue::from_static("stable"));
         headers.insert(
             "x-browser-copyright",
-            HeaderValue::from_static("Copyright 2025 Google LLC. All Rights reserved."),
+            HeaderValue::from_static("Copyright 2026 Google LLC. All Rights reserved."),
         );
-        headers.insert("x-browser-year", HeaderValue::from_static("2025"));
+        headers.insert("x-browser-year", HeaderValue::from_static("2026"));
     }
 
     let resp = client
@@ -371,7 +405,6 @@ pub async fn generate_image_async(
     count: u32,
     save_folder: Option<&str>,
     extra_headers: Option<&HashMap<String, String>>,
-    ref_images: Option<Vec<String>>,
     existing_workflow_id: Option<String>,
 ) -> Result<Value, String> {
     let mut diag = String::new();
@@ -429,62 +462,6 @@ pub async fn generate_image_async(
             "[Reusing workflow: {}...] ",
             &workflow_id[..8.min(workflow_id.len())]
         ));
-    }
-
-    if let Some(refs) = &ref_images {
-        for ref_url in refs {
-            if ref_url.starts_with("data:") {
-                if let Some(pos) = ref_url.find(",") {
-                    let header = &ref_url[..pos];
-                    let b64_data = &ref_url[pos + 1..];
-                    let mime = header.replace("data:", "").replace(";base64", "");
-                    let engine = base64::engine::general_purpose::STANDARD;
-                    if let Ok(bytes) = engine.decode(b64_data) {
-                        match upload_reference_image(
-                            &client,
-                            cookies,
-                            &bytes,
-                            &mime,
-                            &workflow_id,
-                            &session_id,
-                        )
-                        .await
-                        {
-                            Ok(true) => diag.push_str("[Ref image uploaded] "),
-                            Ok(false) => diag.push_str("[Ref upload failed] "),
-                            Err(e) => diag.push_str(&format!("[Ref error: {}] ", e)),
-                        }
-                    }
-                }
-            } else if Path::new(ref_url).exists() {
-                if let Ok(bytes) = std::fs::read(ref_url) {
-                    let ext = Path::new(ref_url)
-                        .extension()
-                        .and_then(|e| e.to_str())
-                        .unwrap_or("png")
-                        .to_lowercase();
-                    let mime = match ext.as_str() {
-                        "jpg" | "jpeg" => "image/jpeg",
-                        "webp" => "image/webp",
-                        _ => "image/png",
-                    };
-                    match upload_reference_image(
-                        &client,
-                        cookies,
-                        &bytes,
-                        mime,
-                        &workflow_id,
-                        &session_id,
-                    )
-                    .await
-                    {
-                        Ok(true) => diag.push_str("[Ref image uploaded] "),
-                        Ok(false) => diag.push_str("[Ref upload failed] "),
-                        Err(e) => diag.push_str(&format!("[Ref error: {}] ", e)),
-                    }
-                }
-            }
-        }
     }
 
     let seed_base: u32 = {
@@ -588,5 +565,87 @@ pub async fn generate_image_async(
         "images": images,
         "projectLink": format!("https://labs.google/fx/tools/whisk/project/{}", workflow_id),
         "diagInfo": diag
+    }))
+}
+
+pub async fn upload_ref_images_async(
+    cookies: &str,
+    ref_images: Vec<String>,
+    existing_workflow_id: Option<String>,
+) -> Result<Value, String> {
+    let client = build_client()?;
+    let session_id = session_id_now();
+
+    let mut workflow_id = existing_workflow_id.unwrap_or_default();
+    if workflow_id.is_empty() {
+        workflow_id = uuid::Uuid::new_v4().to_string();
+        if !cookies.is_empty() {
+            if let Some(wf_id) = create_workflow(&client, cookies, &session_id).await {
+                workflow_id = wf_id;
+            }
+        }
+    }
+
+    let mut uploaded: Vec<String> = Vec::new();
+    let mut failed = 0u32;
+
+    for ref_url in &ref_images {
+        if ref_url.starts_with("data:") {
+            if let Some(pos) = ref_url.find(",") {
+                let header = &ref_url[..pos];
+                let b64_data = &ref_url[pos + 1..];
+                let mime = header.replace("data:", "").replace(";base64", "");
+                let engine = base64::engine::general_purpose::STANDARD;
+                if let Ok(bytes) = engine.decode(b64_data) {
+                    match upload_reference_image(
+                        &client,
+                        cookies,
+                        &bytes,
+                        &mime,
+                        &workflow_id,
+                        &session_id,
+                    )
+                    .await
+                    {
+                        Ok(Some(name)) => uploaded.push(name),
+                        _ => failed += 1,
+                    }
+                }
+            }
+        } else if Path::new(ref_url).exists() {
+            if let Ok(bytes) = std::fs::read(ref_url) {
+                let ext = Path::new(ref_url)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("png")
+                    .to_lowercase();
+                let mime = match ext.as_str() {
+                    "jpg" | "jpeg" => "image/jpeg",
+                    "webp" => "image/webp",
+                    _ => "image/png",
+                };
+                match upload_reference_image(
+                    &client,
+                    cookies,
+                    &bytes,
+                    mime,
+                    &workflow_id,
+                    &session_id,
+                )
+                .await
+                {
+                    Ok(Some(name)) => uploaded.push(name),
+                    _ => failed += 1,
+                }
+            }
+        }
+    }
+
+    Ok(json!({
+        "success": true,
+        "uploadedCount": uploaded.len(),
+        "failedCount": failed,
+        "mediaNames": uploaded,
+        "workflowId": workflow_id
     }))
 }

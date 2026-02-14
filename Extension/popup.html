@@ -263,8 +263,8 @@
 <body>
     <div class="header">
         <h1>🍪 AutoWhisk Grabber</h1>
-        <div class="sub">Lấy cookie + Bearer token từ Google Whisk</div>
-        <div class="ver">v5.1.0</div>
+        <div class="sub">Lấy cookie từ Google Whisk</div>
+        <div class="ver">v6.2.0</div>
     </div>
     <div class="content">
         <button id="btnOpen" class="btn btn-open">
@@ -286,23 +286,15 @@
             </div>
             <div class="divider"></div>
             <div class="status-row">
-                <span class="status-label">Bearer Token</span>
-                <span id="tokenStatus" class="status-value no">❌ Chưa có</span>
-            </div>
-            <div class="status-row">
-                <span class="status-label">Headers</span>
-                <span id="headersStatus" class="status-value no">0</span>
-            </div>
-            <div class="divider"></div>
-            <div class="status-row">
                 <span class="status-label">Bắt lúc</span>
                 <span id="capturedAt" class="status-value no">--</span>
             </div>
+            <div class="divider"></div>
+            <div class="status-row">
+                <span class="status-label">Hết hạn</span>
+                <span id="expiresAt" class="status-value no">--</span>
+            </div>
         </div>
-
-        <button id="btnGrab" class="btn btn-grab">
-            🔄 Lấy Cookie & Token
-        </button>
 
         <button id="btnCopy" class="btn btn-primary" disabled>
             📋 Copy Data

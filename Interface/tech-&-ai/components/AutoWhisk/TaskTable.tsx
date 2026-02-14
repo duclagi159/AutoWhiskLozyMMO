@@ -21,6 +21,9 @@ interface Props {
   isRunning: boolean;
   onPreviewImage: (url: string, taskOrder: number) => void;
   onGlobalSettingsChange?: (ratio: '16:9' | '9:16' | '1:1', count: number) => void;
+  onDownloadSelected?: () => void;
+  onShowRefModal?: () => void;
+  refImageCount?: number;
 }
 
 export function TaskTable({
@@ -42,6 +45,9 @@ export function TaskTable({
   isRunning,
   onPreviewImage,
   onGlobalSettingsChange,
+  onDownloadSelected,
+  onShowRefModal,
+  refImageCount = 0,
 }: Props) {
   const [globalCount, setGlobalCount] = useState<number>(2);
   const [globalRatio, setGlobalRatio] = useState<'16:9' | '9:16' | '1:1'>('9:16');
@@ -80,17 +86,15 @@ export function TaskTable({
   return (
     <div className="flex flex-col h-full">
       <div className="sticky top-0 z-40 bg-[#12121a] border-b border-gray-800">
-        <div className="flex flex-wrap items-center gap-2 p-3">
-          <div className="flex items-center gap-2">
-            <button onClick={onAddTask} className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors">
-              <span>➕</span> Thêm
-            </button>
-            <button onClick={onShowBulkModal} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors">
-              <span>📝</span> Hàng loạt
-            </button>
-          </div>
+        <div className="flex items-center gap-2 px-3 py-2 flex-nowrap overflow-x-auto">
+          <button onClick={onAddTask} className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors shrink-0">
+            ➕ Thêm
+          </button>
+          <button onClick={onShowBulkModal} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors shrink-0">
+            📝 Hàng loạt
+          </button>
 
-          <div className="flex items-center gap-2 pl-2 border-l border-gray-700">
+          <div className="flex items-center gap-2 pl-2 border-l border-gray-700 shrink-0">
             <span className="text-xs text-gray-500">SL:</span>
             <select value={globalCount} onChange={e => handleGlobalCountChange(parseInt(e.target.value))} className="px-2 py-1 bg-[#1a1a2a] border border-gray-700 rounded text-xs cursor-pointer focus:outline-none focus:border-cyan-500">
               <option value={1}>1</option>
@@ -119,28 +123,41 @@ export function TaskTable({
 
           <div className="flex-1" />
 
-          {selectedCount > 0 && (
-            <div className="flex items-center gap-2 pr-2 border-r border-gray-700">
-              <span className="text-sm text-cyan-400 font-medium">{selectedCount} selected</span>
-              <button onClick={onDeleteSelected} disabled={hasRunningTasks} className="px-2 py-1.5 bg-red-600/80 hover:bg-red-600 disabled:opacity-50 rounded-lg text-xs font-medium transition-colors">🗑️ Xóa</button>
+          <button
+            onClick={onShowRefModal}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shrink-0 hover:opacity-80"
+            style={{ backgroundColor: '#ffbd59', color: '#000' }}
+          >
+            🖼️ Fill Ref {refImageCount > 0 ? `(${refImageCount}/3)` : ''}
+          </button>
+
+          {hasRunningTasks ? (
+            <button onClick={onStop} className="px-3 py-1.5 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors shrink-0">
+              ⏹️ Dừng
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={onRunSelected} disabled={!hasRunnable} className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors shrink-0">
+                ▶️ Chạy ({runnableCount})
+              </button>
+              <button onClick={onRunAll} disabled={!hasRunnableAll} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors shrink-0">
+                Tất cả
+              </button>
             </div>
           )}
-
-          <div className="flex items-center gap-2">
-            {hasRunningTasks ? (
-              <button onClick={onStop} className="px-3 py-1.5 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors">
-                <span>⏹️</span> Dừng
-              </button>
-            ) : (
-              <>
-                <button onClick={onRunSelected} disabled={!hasRunnable} className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors">
-                  <span>▶️</span> Chạy ({runnableCount})
-                </button>
-                <button onClick={onRunAll} disabled={!hasRunnableAll} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors">Tất cả</button>
-              </>
-            )}
-          </div>
         </div>
+
+        {selectedCount > 0 && (
+          <div className="flex items-center gap-3 px-3 pb-2">
+            <span className="text-sm text-cyan-400 font-medium">{selectedCount} selected</span>
+            <button onClick={onDownloadSelected} className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:opacity-80 flex items-center gap-1.5" style={{ backgroundColor: '#737373' }}>
+              ⬇️ Download ({selectedCount})
+            </button>
+            <button onClick={onDeleteSelected} disabled={hasRunningTasks} className="px-3 py-1.5 bg-red-600/80 hover:bg-red-600 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5">
+              🗑️ Xóa
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-auto">

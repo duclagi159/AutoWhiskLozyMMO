@@ -14,6 +14,10 @@ export default defineConfig(({ mode }) => {
       },
     },
     base: './',
+    build: {
+      outDir: '../../frontend-dist',
+      emptyOutDir: true,
+    },
     plugins: [tailwindcss(), react()],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),

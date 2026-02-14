@@ -1,10 +1,11 @@
 {
     "manifest_version": 3,
     "name": "AutoWhisk Cookie Grabber",
-    "version": "6.0.0",
+    "version": "6.2.0",
     "description": "Lấy cookie + Gmail từ labs.google cho AutoWhisk Tool",
     "permissions": [
         "cookies",
+        "tabs",
         "activeTab",
         "storage",
         "scripting",
